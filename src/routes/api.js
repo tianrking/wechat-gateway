@@ -18,6 +18,76 @@ function mediaFallbackName(m) {
   return "media.bin";
 }
 
+const CONTENT_TYPE_EXT = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "image/heic": "heic",
+  "image/heif": "heif",
+  "image/bmp": "bmp",
+  "image/tiff": "tiff",
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "video/x-msvideo": "avi",
+  "video/x-matroska": "mkv",
+  "audio/silk": "silk",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/ogg": "ogg",
+  "audio/aac": "aac",
+  "application/pdf": "pdf",
+  "application/zip": "zip",
+  "application/x-zip-compressed": "zip",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-powerpoint": "ppt",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+  "text/plain": "txt",
+  "text/csv": "csv",
+  "application/json": "json",
+};
+
+function sanitizeFilename(raw) {
+  const base = String(raw || "").trim().replaceAll("\\", "/").split("/").pop() || "";
+  const cleaned = base.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_").trim();
+  return cleaned.slice(0, 180);
+}
+
+function hasExt(name) {
+  const n = String(name || "");
+  const idx = n.lastIndexOf(".");
+  return idx > 0 && idx < n.length - 1;
+}
+
+function extFromContentType(contentType) {
+  const ct = String(contentType || "").toLowerCase().split(";")[0].trim();
+  return CONTENT_TYPE_EXT[ct] || "";
+}
+
+function extFromType(type) {
+  const t = String(type || "").toLowerCase();
+  if (t === "image") return "jpg";
+  if (t === "video") return "mp4";
+  if (t === "voice") return "silk";
+  if (t === "file") return "bin";
+  return "bin";
+}
+
+function buildDownloadName(m) {
+  const byName = sanitizeFilename(m.fileName);
+  const byKey = sanitizeFilename(String(m.r2Key || "").split("/").pop());
+  const base = byName || byKey || mediaFallbackName(m);
+  if (hasExt(base)) return base;
+  const ext = extFromContentType(m.contentType) || extFromType(m.type);
+  return `${base}.${ext}`;
+}
+
 function pickAccount(accounts, to, preferredId) {
   if (preferredId) {
     return accounts.find((a) => a.accountId === preferredId) || null;
@@ -81,9 +151,7 @@ export async function handleApi(request, env) {
             size: m.size,
             archived: m.archived === true,
             contentType: m.contentType || "",
-            downloadName: m.fileName
-              || (String(m.r2Key || "").split("/").pop() || "")
-              || mediaFallbackName(m),
+            downloadName: buildDownloadName(m),
             downloadPath: m.archived && m.r2Key
               ? `/api/inbox/media?accountId=${encodeURIComponent(x.accountId)}&key=${encodeURIComponent(m.r2Key)}`
               : "",

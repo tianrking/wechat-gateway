@@ -142,6 +142,7 @@ bucket_name = "wechat-media"
 ```
 
 When disabled (default), the system records media metadata only and does not download binary content.
+When enabled, download filenames infer more accurate extensions from `contentType` (for example `heic/webp/mp3/wav/docx/xlsx/zip`).
 
 4. Local run
 

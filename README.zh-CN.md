@@ -142,6 +142,7 @@ bucket_name = "wechat-media"
 ```
 
 不开启时（默认）不会下载媒体内容，只记录媒体元信息。
+开启后，下载文件名会按 `contentType` 自动推断更准确后缀（如 `heic/webp/mp3/wav/docx/xlsx/zip`）。
 
 4. 本地运行
 
