@@ -1,5 +1,5 @@
 import { Keys } from "../constants.js";
-import { kvDelete, kvListJson, kvPutJson } from "./kv.js";
+import { kvDelete, kvGetJson, kvListJson, kvPutJson } from "./kv.js";
 
 function normalizeInbound(input) {
   return {
@@ -43,4 +43,33 @@ export async function clearInboundMessages(kv, accountId) {
     all.map((x) => kvDelete(kv, Keys.inbox(x.accountId, `${x.createdAt}:${x.id}`))),
   );
   return all.length;
+}
+
+async function findInboxEntry(kv, accountId, id, createdAt) {
+  if (createdAt) {
+    const key = Keys.inbox(accountId, `${createdAt}:${id}`);
+    const item = await kvGetJson(kv, key);
+    return item ? { key, item } : null;
+  }
+
+  const suffix = `:${id}`;
+  const prefix = `inbox:${accountId}:`;
+  let cursor = undefined;
+  do {
+    const page = await kv.list({ prefix, cursor });
+    cursor = page.list_complete ? undefined : page.cursor;
+    for (const entry of page.keys) {
+      if (!entry.name.endsWith(suffix)) continue;
+      const item = await kvGetJson(kv, entry.name);
+      if (item) return { key: entry.name, item };
+    }
+  } while (cursor);
+  return null;
+}
+
+export async function deleteInboundMessage(kv, accountId, id, createdAt) {
+  const found = await findInboxEntry(kv, accountId, id, createdAt);
+  if (!found) return null;
+  await kvDelete(kv, found.key);
+  return found.item;
 }

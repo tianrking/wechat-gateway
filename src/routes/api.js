@@ -5,7 +5,7 @@ import {
   listContacts,
   touchContact,
 } from "../store/accounts.js";
-import { clearInboundMessages, listInboundMessages } from "../store/inbox.js";
+import { clearInboundMessages, deleteInboundMessage, listInboundMessages } from "../store/inbox.js";
 import { sendText } from "../services/ilink.js";
 import { hash32, json, readJson } from "../utils/common.js";
 
@@ -188,6 +188,37 @@ export async function handleApi(request, env) {
       const accountId = String(url.searchParams.get("accountId") || "").trim();
       const deleted = await clearInboundMessages(env.BOT_STATE, accountId || undefined);
       return json({ ok: true, deleted, accountId: accountId || null });
+    }
+
+    if (request.method === "DELETE" && url.pathname === "/api/inbox/item") {
+      const accountId = String(url.searchParams.get("accountId") || "").trim();
+      const id = String(url.searchParams.get("id") || "").trim();
+      const createdAtRaw = String(url.searchParams.get("createdAt") || "").trim();
+      const createdAt = createdAtRaw ? Number(createdAtRaw) : 0;
+      if (!accountId || !id) {
+        return json({ ok: false, error: "missing accountId/id" }, 400);
+      }
+      const deleted = await deleteInboundMessage(
+        env.BOT_STATE,
+        accountId,
+        id,
+        Number.isFinite(createdAt) && createdAt > 0 ? createdAt : 0,
+      );
+      if (!deleted) return json({ ok: false, error: "message not found" }, 404);
+
+      if (env.MEDIA_BUCKET && Array.isArray(deleted.media)) {
+        const keys = deleted.media
+          .map((m) => String(m?.r2Key || "").trim())
+          .filter((k) => k && k.startsWith(`inbound/${accountId}/`));
+        await Promise.all(keys.map(async (k) => {
+          try {
+            await env.MEDIA_BUCKET.delete(k);
+          } catch {
+            // Ignore media deletion errors; metadata is already removed from inbox.
+          }
+        }));
+      }
+      return json({ ok: true, deleted: { accountId, id, createdAt: deleted.createdAt || null } });
     }
 
     if (request.method === "DELETE" && url.pathname.startsWith("/api/accounts/")) {

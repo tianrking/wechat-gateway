@@ -35,7 +35,12 @@ function html() {
     .preview-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
     .preview-body img, .preview-body video { max-width:100%; max-height:72vh; border-radius:8px; border:1px solid #e7edf7; background:#000; }
     table { width:100%; border-collapse: collapse; }
-    th, td { border-bottom:1px solid #e7edf7; text-align:left; padding:8px; font-size:13px; }
+    th, td { border-bottom:1px solid #e7edf7; text-align:left; padding:8px; font-size:13px; vertical-align: top; }
+    .msg-stack { display:grid; gap:6px; }
+    .msg-text { white-space: pre-wrap; word-break: break-word; }
+    .msg-media { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+    .tag { display:inline-block; padding:1px 8px; border-radius:999px; font-size:11px; background:#eef3ff; color:#24426d; }
+    .table-action { white-space:nowrap; }
     img { width:220px; height:220px; object-fit:contain; border:1px solid #dbe3ef; border-radius:8px; background:#fff; }
     @media (max-width: 820px){ .two, .three { grid-template-columns:1fr; } }
   </style>
@@ -126,7 +131,7 @@ function html() {
         <button type="button" class="alt" id="btnInboxClear">清空当前账户消息 / Clear Current Account Inbox</button>
       </div>
       <table>
-        <thead><tr><th>time</th><th>accountId</th><th>from</th><th>kind</th><th>text / media</th></tr></thead>
+        <thead><tr><th>time</th><th>accountId</th><th>from</th><th>kind</th><th>text / media</th><th>action</th></tr></thead>
         <tbody id="inboxRows"></tbody>
       </table>
       <div class="hint">按“发送账号 / Sender Account”筛选；不选账号时显示全部。</div>
@@ -411,19 +416,22 @@ export function renderAdminUiScript() {
               ? (" <button type='button' class='alt' data-dl='" + attrEsc(m.downloadPath) + "' data-name='" + attrEsc(m.downloadName || m.fileName || (t + ".bin")) + "'>下载</button>")
               : "";
             const reason = m?.archiveReason ? (" (" + esc(m.archiveReason) + ")") : "";
-            return t + n + pv + dl + reason;
-          }).join(", ");
-          const content = x.text ? esc(x.text) : (mediaBrief || "");
+            return "<div class='msg-media'><span class='tag'>" + esc(t) + "</span><span>" + esc(n.trim()) + "</span>" + pv + dl + "<span>" + reason + "</span></div>";
+          }).join("");
+          const textBlock = x.text ? ("<div class='msg-text'>" + esc(x.text) + "</div>") : "";
+          const contentInner = textBlock + mediaBrief;
+          const content = "<div class='msg-stack'>" + (contentInner || "<span class='hint'>empty</span>") + "</div>";
           return "<tr>"
             + "<td>" + fmtTime(x.createdAt) + "</td>"
-            + "<td>" + (x.accountId || "") + "</td>"
-            + "<td>" + (x.userId || "") + "</td>"
-            + "<td>" + (x.kind || "text") + "</td>"
+            + "<td>" + esc(x.accountId || "") + "</td>"
+            + "<td>" + esc(x.userId || "") + "</td>"
+            + "<td><span class='tag'>" + esc(x.kind || "text") + "</span></td>"
             + "<td>" + content + "</td>"
+            + "<td class='table-action'><button type='button' class='bad' data-del-msg-account='" + attrEsc(x.accountId || "") + "' data-del-msg-id='" + attrEsc(x.id || "") + "' data-del-msg-created='" + attrEsc(String(x.createdAt || "")) + "'>删除 / Delete</button></td>"
             + "</tr>";
         })()
       ).join("");
-      $("inboxRows").innerHTML = rows || "<tr><td colspan='5'>暂无消息 / No inbound messages</td></tr>";
+      $("inboxRows").innerHTML = rows || "<tr><td colspan='6'>暂无消息 / No inbound messages</td></tr>";
       document.querySelectorAll("button[data-dl]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const path = btn.getAttribute("data-dl") || "";
@@ -458,6 +466,25 @@ export function renderAdminUiScript() {
           const name = btn.getAttribute("data-name") || "preview";
           if (!path) return;
           await openPreview(path, mode, name);
+        });
+      });
+      document.querySelectorAll("button[data-del-msg-id]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const accountId = btn.getAttribute("data-del-msg-account") || "";
+          const id = btn.getAttribute("data-del-msg-id") || "";
+          const createdAt = btn.getAttribute("data-del-msg-created") || "";
+          if (!accountId || !id) return;
+          if (!confirm("确认删除该消息? / Confirm delete this message?")) return;
+          try {
+            const qDel = "?accountId=" + encodeURIComponent(accountId)
+              + "&id=" + encodeURIComponent(id)
+              + (createdAt ? ("&createdAt=" + encodeURIComponent(createdAt)) : "");
+            const dDel = await api("/api/inbox/item" + qDel, "DELETE");
+            log(dDel);
+            await refreshInbox();
+          } catch (e) {
+            log(String(e));
+          }
         });
       });
       return d;

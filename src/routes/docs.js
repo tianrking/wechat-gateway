@@ -130,6 +130,10 @@ const groups = [
       endpoint("DELETE", "/api/inbox", {
         query: "accountId=acc-a",
       }),
+      endpoint("DELETE", "/api/inbox/item", {
+        query: "accountId=acc-a&id=<MESSAGE_ID>&createdAt=<TIMESTAMP_MS>",
+        summary: "Delete one inbound message by id (and optional createdAt).",
+      }),
       endpoint("DELETE", "/api/accounts/{accountId}"),
       endpoint("POST", "/api/send", {
         summary: "Unified send API. Response includes upstream result.",
