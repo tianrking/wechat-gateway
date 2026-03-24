@@ -258,6 +258,12 @@ curl -X POST "$WORKER/admin/poll" \
 - Workers：微信通道网关 + 控制平面。
 - FastAPI：业务编排、用户鉴权、审计、多租户策略。
 
+## 11. 常见问题
+
+- 如果 `/api/send` 返回成功但微信端未看到消息：
+  - 先在微信里给该机器人发送一条消息，触发会话上下文。
+  - 再次调用 `/api/send` 进行重试。
+
 FastAPI 通过服务端调用 Worker API，不建议客户端直接访问 Worker 管理接口。
 
 ## 11. 生产建议

@@ -101,6 +101,7 @@ function html() {
         <button type="button" id="btnSendTest">调用 /api/send</button>
       </div>
       <div class="hint">你后端直接调 <code>/api/send</code> 就行，不需要管理微信细节。 / Your backend can call <code>/api/send</code> directly.</div>
+      <div class="hint">收不到消息时，请先在微信里给机器人发一条消息触发会话，再重试发送。 / If messages are not received, send one message from WeChat first, then retry.</div>
     </div>
 
     <div class="card">

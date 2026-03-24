@@ -258,6 +258,12 @@ Recommended split:
 - Workers: WeChat channel gateway and control plane.
 - FastAPI: business orchestration, user auth, audit, multi-tenant rules.
 
+## 11. FAQ
+
+- If `/api/send` returns success but no message appears on WeChat:
+  - Send one message from WeChat to that bot first (to activate session/context).
+  - Retry `/api/send`.
+
 FastAPI should call Worker APIs with server-to-server token and keep client apps away from direct Worker admin access.
 
 ## 11. Production Notes
