@@ -65,6 +65,8 @@ export async function handleApi(request, env) {
           accountId: x.accountId,
           userId: x.userId,
           text: x.text,
+          kind: x.kind || "text",
+          media: Array.isArray(x.media) ? x.media : [],
           botId: x.botId,
           space: x.space,
           createdAt: x.createdAt,

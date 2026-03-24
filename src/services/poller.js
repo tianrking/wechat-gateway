@@ -28,10 +28,59 @@ function defaultSpace(name) {
   };
 }
 
+function extractInboundPayload(msg) {
+  const items = Array.isArray(msg?.item_list) ? msg.item_list : [];
+  const media = [];
+  let text = "";
+
+  for (const item of items) {
+    if (!item || typeof item !== "object") continue;
+    if (item.type === Msg.ITEM_TEXT && item.text_item?.text && !text) {
+      text = String(item.text_item.text).trim();
+      continue;
+    }
+
+    if (item.type === 2 && item.image_item?.media) {
+      media.push({
+        type: "image",
+        fileName: item.image_item?.file_name || "",
+        size: Number(item.image_item?.mid_size || 0) || undefined,
+      });
+      continue;
+    }
+    if (item.type === 3 && item.voice_item?.media) {
+      media.push({
+        type: "voice",
+        size: Number(item.voice_item?.voice_size || 0) || undefined,
+      });
+      continue;
+    }
+    if (item.type === 4 && item.file_item?.media) {
+      media.push({
+        type: "file",
+        fileName: item.file_item?.file_name || "",
+        size: Number(item.file_item?.len || 0) || undefined,
+      });
+      continue;
+    }
+    if (item.type === 5 && item.video_item?.media) {
+      media.push({
+        type: "video",
+        size: Number(item.video_item?.video_size || 0) || undefined,
+      });
+      continue;
+    }
+  }
+
+  return { text, media };
+}
+
 async function processOneInbound(account, msg, env) {
   const userId = msg?.from_user_id;
-  const text = extractText(msg?.item_list);
-  if (!userId || !text) return { handled: false, reason: "empty" };
+  const payload = extractInboundPayload(msg);
+  const text = payload.text || extractText(msg?.item_list);
+  const media = payload.media || [];
+  if (!userId || (!text && media.length === 0)) return { handled: false, reason: "empty" };
   const spaceName = account.space || "default";
 
   await touchContact(env.BOT_STATE, account.accountId, userId);
@@ -39,6 +88,8 @@ async function processOneInbound(account, msg, env) {
     accountId: account.accountId,
     userId,
     text,
+    kind: media.length ? (text ? "mixed" : "media") : "text",
+    media,
     botId: account.botId,
     space: spaceName,
     contextToken: msg?.context_token || "",
@@ -47,6 +98,11 @@ async function processOneInbound(account, msg, env) {
 
   if (msg?.context_token) {
     await setContextToken(env.BOT_STATE, account.accountId, userId, msg.context_token);
+  }
+
+  // For media-only inbound, record it and skip LLM reply generation.
+  if (!text) {
+    return { handled: true, reason: "media_only" };
   }
 
   const space = (await getSpace(env.BOT_STATE, spaceName)) || defaultSpace(spaceName);

@@ -122,7 +122,7 @@ function html() {
         <button type="button" class="alt" id="btnInboxClear">清空当前账户消息 / Clear Current Account Inbox</button>
       </div>
       <table>
-        <thead><tr><th>time</th><th>accountId</th><th>from</th><th>text</th></tr></thead>
+        <thead><tr><th>time</th><th>accountId</th><th>from</th><th>kind</th><th>text / media</th></tr></thead>
         <tbody id="inboxRows"></tbody>
       </table>
       <div class="hint">按“发送账号 / Sender Account”筛选；不选账号时显示全部。</div>
@@ -341,14 +341,24 @@ export function renderAdminUiScript() {
       const d = await api("/api/inbox" + q);
       st.inbox = Array.isArray(d.items) ? d.items : [];
       const rows = st.inbox.map((x) =>
-        "<tr>"
-        + "<td>" + fmtTime(x.createdAt) + "</td>"
-        + "<td>" + (x.accountId || "") + "</td>"
-        + "<td>" + (x.userId || "") + "</td>"
-        + "<td>" + esc(x.text || "") + "</td>"
-        + "</tr>"
+        (() => {
+          const media = Array.isArray(x.media) ? x.media : [];
+          const mediaBrief = media.map((m) => {
+            const t = m?.type || "media";
+            const n = m?.fileName ? (" " + m.fileName) : "";
+            return t + n;
+          }).join(", ");
+          const content = x.text || mediaBrief || "";
+          return "<tr>"
+            + "<td>" + fmtTime(x.createdAt) + "</td>"
+            + "<td>" + (x.accountId || "") + "</td>"
+            + "<td>" + (x.userId || "") + "</td>"
+            + "<td>" + (x.kind || "text") + "</td>"
+            + "<td>" + esc(content) + "</td>"
+            + "</tr>";
+        })()
       ).join("");
-      $("inboxRows").innerHTML = rows || "<tr><td colspan='4'>暂无消息 / No inbound messages</td></tr>";
+      $("inboxRows").innerHTML = rows || "<tr><td colspan='5'>暂无消息 / No inbound messages</td></tr>";
       return d;
     } catch (e) {
       log(String(e));

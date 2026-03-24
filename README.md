@@ -33,6 +33,7 @@ Cloudflare Workers based WeChat iLink gateway with multi-account pool, routing, 
   - typing indicator support
 - Inbound message panel:
   - per-account inbound storage and display
+  - supports inbound text/image/file/video/voice records
   - per-account filter and clear
   - 10s auto-refresh in Web UI
 - Admin UI enhancements:

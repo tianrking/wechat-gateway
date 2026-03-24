@@ -7,6 +7,8 @@ function normalizeInbound(input) {
     accountId: String(input.accountId || "").trim(),
     userId: String(input.userId || "").trim(),
     text: String(input.text || ""),
+    kind: String(input.kind || "text"),
+    media: Array.isArray(input.media) ? input.media : [],
     botId: String(input.botId || "").trim(),
     space: String(input.space || "default").trim(),
     contextToken: String(input.contextToken || ""),
@@ -42,4 +44,3 @@ export async function clearInboundMessages(kv, accountId) {
   );
   return all.length;
 }
-
