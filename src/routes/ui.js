@@ -110,6 +110,9 @@ function html() {
 
     <div class="card">
       <h2>日志 / Logs</h2>
+      <div class="row">
+        <button type="button" class="alt" id="btnClearLogs">清空日志 / Clear Logs</button>
+      </div>
       <div id="log" class="log-list"></div>
     </div>
   </div>
@@ -185,6 +188,10 @@ export function renderAdminUiScript() {
       response: typeof x === "string" ? { message: x } : x,
       open: false,
     });
+  };
+  const clearLogs = () => {
+    st.logs = [];
+    renderLogs();
   };
   const token = () => $("token").value.trim();
   const base = () => $("base").value.trim() || location.origin;
@@ -444,6 +451,7 @@ export function renderAdminUiScript() {
   $("btnUseLoginUser").addEventListener("click", useLoginUser);
   $("btnUseRecent").addEventListener("click", useRecent);
   $("btnSendTest").addEventListener("click", sendTest);
+  $("btnClearLogs").addEventListener("click", clearLogs);
   $("sendAccSelect").addEventListener("change", async () => {
     const accountId = selectedAccountId();
     if (accountId && st.currentUserByAccount[accountId]) {
