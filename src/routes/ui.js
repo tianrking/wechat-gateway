@@ -117,6 +117,7 @@ function html() {
       <h2>入站消息（按账户查看） / Inbound Messages</h2>
       <div class="row">
         <button type="button" id="btnInboxRefresh">刷新消息 / Refresh Inbox</button>
+        <button type="button" class="alt" id="btnInboxAuto">自动刷新: 开 / Auto: ON (10s)</button>
         <button type="button" class="alt" id="btnInboxClear">清空当前账户消息 / Clear Current Account Inbox</button>
       </div>
       <table>
@@ -169,6 +170,8 @@ export function renderAdminUiScript() {
     inbox: [],
     logs: [],
     reqSeq: 0,
+    autoInbox: true,
+    inboxTimer: null,
   };
   const $ = (id) => document.getElementById(id);
   const logEl = $("log");
@@ -216,6 +219,7 @@ export function renderAdminUiScript() {
   const base = () => $("base").value.trim() || location.origin;
 
   const selectedAccountId = () => $("sendAccSelect").value.trim();
+  const INBOX_INTERVAL_MS = 10_000;
   const fmtTime = (ts) => {
     const n = Number(ts || 0);
     if (!n) return "";
@@ -349,6 +353,27 @@ export function renderAdminUiScript() {
       log(String(e));
       return null;
     }
+  };
+
+  const setInboxAuto = (on) => {
+    st.autoInbox = Boolean(on);
+    if (st.inboxTimer) {
+      clearInterval(st.inboxTimer);
+      st.inboxTimer = null;
+    }
+    $("btnInboxAuto").textContent = st.autoInbox
+      ? "自动刷新: 开 / Auto: ON (10s)"
+      : "自动刷新: 关 / Auto: OFF";
+    if (st.autoInbox) {
+      st.inboxTimer = setInterval(() => {
+        refreshInbox();
+      }, INBOX_INTERVAL_MS);
+    }
+  };
+
+  const toggleInboxAuto = () => {
+    setInboxAuto(!st.autoInbox);
+    log(st.autoInbox ? "已开启每10秒自动刷新消息。 / Auto refresh enabled." : "已关闭自动刷新消息。 / Auto refresh disabled.");
   };
 
   const clearInbox = async () => {
@@ -526,6 +551,7 @@ export function renderAdminUiScript() {
   $("btnSendTest").addEventListener("click", sendTest);
   $("btnClearLogs").addEventListener("click", clearLogs);
   $("btnInboxRefresh").addEventListener("click", refreshInbox);
+  $("btnInboxAuto").addEventListener("click", toggleInboxAuto);
   $("btnInboxClear").addEventListener("click", clearInbox);
   $("sendAccSelect").addEventListener("change", async () => {
     const accountId = selectedAccountId();
@@ -537,6 +563,7 @@ export function renderAdminUiScript() {
   });
 
   renderLogs();
+  setInboxAuto(true);
   loadConn();
   initLoginSession();
   listAccounts();
