@@ -120,9 +120,12 @@ export async function handleApi(request, env) {
 
     if (request.method === "GET" && url.pathname === "/api/contacts") {
       const accountId = String(url.searchParams.get("accountId") || "").trim();
+      if (!accountId) {
+        return json({ ok: false, error: "accountId is required to reduce KV usage" }, 400);
+      }
       const limitRaw = Number(url.searchParams.get("limit") || 50);
       const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.floor(limitRaw))) : 50;
-      const items = await listContacts(env.BOT_STATE, accountId || undefined);
+      const items = await listContacts(env.BOT_STATE, accountId);
       return json({
         ok: true,
         items: items.slice(0, limit).map((x) => ({
@@ -135,8 +138,11 @@ export async function handleApi(request, env) {
 
     if (request.method === "GET" && url.pathname === "/api/inbox") {
       const accountId = String(url.searchParams.get("accountId") || "").trim();
+      if (!accountId) {
+        return json({ ok: false, error: "accountId is required to reduce KV usage" }, 400);
+      }
       const limitRaw = Number(url.searchParams.get("limit") || 100);
-      const items = await listInboundMessages(env.BOT_STATE, accountId || undefined, limitRaw);
+      const items = await listInboundMessages(env.BOT_STATE, accountId, limitRaw);
       return json({
         ok: true,
         items: items.map((x) => ({
@@ -259,6 +265,13 @@ export async function handleApi(request, env) {
 
     return json({ ok: false, error: "not found" }, 404);
   } catch (err) {
+    const msg = String(err?.message || err);
+    if (msg.includes("KV list() limit exceeded for the day")) {
+      return json({
+        ok: false,
+        error: "KV list daily quota exceeded. Please wait for quota reset or upgrade plan, then enable low-frequency refresh.",
+      }, 429);
+    }
     return json({ ok: false, error: String(err?.message || err) }, 500);
   }
 }

@@ -507,7 +507,11 @@ export function renderAdminUiScript() {
   const refreshContacts = async () => {
     try {
       const acc = selectedAccountId();
-      const q = acc ? ("?accountId=" + encodeURIComponent(acc) + "&limit=100") : "?limit=100";
+      if (!acc) {
+        $("contactPick").innerHTML = "<option value=''>请先选择账号 / Select account first</option>";
+        return null;
+      }
+      const q = "?accountId=" + encodeURIComponent(acc) + "&limit=100";
       const d = await api("/api/contacts" + q);
       st.contacts = Array.isArray(d.items) ? d.items : [];
       const sel = $("contactPick");
@@ -526,7 +530,11 @@ export function renderAdminUiScript() {
   const refreshInbox = async () => {
     try {
       const acc = selectedAccountId();
-      const q = acc ? ("?accountId=" + encodeURIComponent(acc) + "&limit=100") : "?limit=100";
+      if (!acc) {
+        $("inboxRows").innerHTML = "<tr><td colspan='6'>请先选择账号 / Select account first</td></tr>";
+        return null;
+      }
+      const q = "?accountId=" + encodeURIComponent(acc) + "&limit=100";
       const d = await api("/api/inbox" + q);
       st.inbox = Array.isArray(d.items) ? d.items : [];
       const rows = st.inbox.map((x) =>
@@ -709,6 +717,9 @@ export function renderAdminUiScript() {
       ).join("");
       $("accRows").innerHTML = rows || "<tr><td colspan='5'>暂无账号 / No accounts</td></tr>";
       syncSendAccountSelect();
+      if (!selectedAccountId() && st.accounts.length > 0) {
+        $("sendAccSelect").value = st.accounts[0].accountId;
+      }
       await refreshContacts();
       await refreshInbox();
 
@@ -836,11 +847,10 @@ export function renderAdminUiScript() {
   });
 
   renderLogs();
-  setInboxAuto(true);
+  setInboxAuto(false);
   loadConn();
   initLoginSession();
   listAccounts();
-  refreshInbox();
 })();
 `;
 

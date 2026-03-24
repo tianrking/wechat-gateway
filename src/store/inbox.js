@@ -19,13 +19,9 @@ function normalizeInbound(input) {
 export async function addInboundMessage(kv, input, keep = 200) {
   const item = normalizeInbound(input);
   await kvPutJson(kv, Keys.inbox(item.accountId, `${item.createdAt}:${item.id}`), item);
-
-  const all = await kvListJson(kv, `inbox:${item.accountId}:`);
-  if (all.length <= keep) return item;
-
-  const sorted = all.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
-  const stale = sorted.slice(keep);
-  await Promise.all(stale.map((x) => kvDelete(kv, Keys.inbox(item.accountId, `${x.createdAt}:${x.id}`))));
+  // Hot-path cost guard: avoid KV.list() on every inbound message.
+  // Retention cleanup can be done manually via /api/inbox DELETE when needed.
+  void keep;
   return item;
 }
 
