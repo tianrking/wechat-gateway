@@ -201,7 +201,7 @@ export function renderAdminUiScript() {
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;")
+    .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
   const stringify = (v) => {
     if (typeof v === "string") return v;
