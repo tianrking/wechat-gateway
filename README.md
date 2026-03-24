@@ -276,3 +276,4 @@ Use only authorized own accounts and compliant platform workflows. This project 
 ## 13. License
 
 MIT
+\n## Web Admin UI\n\nAfter deployment, open:\n\n- https://<your-worker-domain>/admin-ui\n\nEnter ADMIN_TOKEN in the page, then you can run QR login and account onboarding online.\n

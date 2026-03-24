@@ -276,3 +276,4 @@ FastAPI 通过服务端调用 Worker API，不建议客户端直接访问 Worker
 ## 13. 许可证
 
 MIT
+\n## Web 管理界面\n\n部署完成后，直接访问：\n\n- https://<你的worker域名>/admin-ui\n\n在页面里输入 ADMIN_TOKEN 后，即可在线完成扫码登录与账号入库。\n

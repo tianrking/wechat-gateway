@@ -1,4 +1,6 @@
 ﻿import { handleAdmin } from "./routes/admin.js";
+import { handleApi } from "./routes/api.js";
+import { renderAdminUi, renderAdminUiScript } from "./routes/ui.js";
 import { runPollCycle } from "./services/poller.js";
 import { requireAdmin } from "./utils/auth.js";
 import { errMessage, json } from "./utils/common.js";
@@ -12,15 +14,23 @@ export default {
         return json({ ok: true, service: "cf-wechat-worker", now: new Date().toISOString() });
       }
 
-      if (!url.pathname.startsWith("/admin/")) {
-        return json({ ok: false, error: "not found" }, 404);
+      if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/admin-ui")) {
+        return renderAdminUi();
       }
 
-      if (!requireAdmin(request, env)) {
-        return json({ ok: false, error: "unauthorized" }, 401);
+      if (request.method === "GET" && url.pathname === "/admin-ui.js") {
+        return renderAdminUiScript();
       }
 
-      return handleAdmin(request, env);
+      if (url.pathname.startsWith("/admin/") || url.pathname.startsWith("/api/")) {
+        if (!requireAdmin(request, env)) {
+          return json({ ok: false, error: "unauthorized" }, 401);
+        }
+        if (url.pathname.startsWith("/admin/")) return handleAdmin(request, env);
+        return handleApi(request, env);
+      }
+
+      return json({ ok: false, error: "not found" }, 404);
     } catch (err) {
       console.error("request failed", err);
       return json({ ok: false, error: errMessage(err) }, 500);
