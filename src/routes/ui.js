@@ -84,6 +84,7 @@ function html() {
       <h2>账户管理（可添加多个，可删除） / Account Management</h2>
       <div class="row">
         <button type="button" id="btnListAccounts">刷新列表 / Refresh</button>
+        <button type="button" class="alt" id="btnPollNow">立即拉取消息 / Poll Now</button>
       </div>
       <table>
         <thead><tr><th>accountId</th><th>botId</th><th>space</th><th>enabled</th><th>action</th></tr></thead>
@@ -393,6 +394,16 @@ export function renderAdminUiScript() {
     } catch (e) { log(String(e)); }
   };
 
+  const pollNow = async () => {
+    try {
+      const accountId = selectedAccountId();
+      const d = await api("/admin/poll", "POST", {
+        accountId: accountId || undefined,
+      });
+      log(d);
+    } catch (e) { log(String(e)); }
+  };
+
   const useLoginUser = () => {
     const accountId = selectedAccountId();
     const mapped = accountId ? st.currentUserByAccount[accountId] : "";
@@ -452,6 +463,7 @@ export function renderAdminUiScript() {
   $("btnStatusLogin").addEventListener("click", () => statusLogin(false));
   $("btnConfirmLogin").addEventListener("click", confirmLogin);
   $("btnListAccounts").addEventListener("click", listAccounts);
+  $("btnPollNow").addEventListener("click", pollNow);
   $("btnUseLoginUser").addEventListener("click", useLoginUser);
   $("btnUseRecent").addEventListener("click", useRecent);
   $("btnSendTest").addEventListener("click", sendTest);
