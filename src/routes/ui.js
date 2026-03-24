@@ -160,6 +160,7 @@ function html() {
     .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; background: linear-gradient(180deg, #def3e8, #d2eadf); color: #2d6657; border: 1px solid #b7dccb; }
     .table-action { white-space: nowrap; }
     img { width: 240px; max-width: 100%; height: 240px; object-fit: contain; border: 1px solid var(--line); border-radius: var(--radius-lg); background: #fff; }
+    .qr-note { margin-top: 8px; }
     @keyframes riseIn {
       from { opacity: .65; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
@@ -213,6 +214,7 @@ function html() {
       <div class="grid">
         <h2>二维码 / QR</h2>
         <img id="qr" alt="QR" />
+        <div id="qrHint" class="hint qr-note">请先填写 ADMIN_TOKEN，然后点击“开始扫码 / Start”生成二维码。 / Enter ADMIN_TOKEN, then click Start.</div>
       </div>
       <div class="grid">
         <h2>扫码会话信息 / Login Session</h2>
@@ -407,6 +409,27 @@ export function renderAdminUiScript() {
   };
   const token = () => $("token").value.trim();
   const base = () => $("base").value.trim() || location.origin;
+  const showTokenGuide = (actionLabel = "current action") => {
+    const msg = "请先填写 ADMIN_TOKEN 再执行：" + actionLabel + " / Fill ADMIN_TOKEN first.";
+    $("loginInfo").textContent = JSON.stringify({
+      ok: false,
+      error: msg,
+      guide: [
+        "1) 在 Connection 填写 ADMIN_TOKEN",
+        "2) 点击 保存 / Save",
+        "3) 点击 开始扫码 / Start 生成二维码",
+      ],
+    }, null, 2);
+    $("qr").removeAttribute("src");
+    $("qrHint").textContent = "未检测到 ADMIN_TOKEN。请先填写后再点击开始扫码。 / ADMIN_TOKEN is required before QR generation.";
+    $("token").focus();
+    log(msg);
+  };
+  const ensureToken = (actionLabel) => {
+    if (token()) return true;
+    showTokenGuide(actionLabel);
+    return false;
+  };
 
   const selectedAccountId = () => $("sendAccSelect").value.trim();
   const INBOX_INTERVAL_MS = 10_000;
@@ -426,6 +449,14 @@ export function renderAdminUiScript() {
     $("token").value = localStorage.getItem("wg_token") || "";
     $("base").value = localStorage.getItem("wg_base") || location.origin;
     if (st.currentUserId) $("to").value = st.currentUserId;
+    if (!token()) {
+      $("loginInfo").textContent = JSON.stringify({
+        ok: false,
+        error: "missing ADMIN_TOKEN",
+        hint: "请先填写 ADMIN_TOKEN，然后点击开始扫码生成二维码。",
+      }, null, 2);
+      $("qrHint").textContent = "请先填写 ADMIN_TOKEN，然后点击“开始扫码 / Start”生成二维码。";
+    }
   };
 
   const extractUserId = (data) => {
@@ -462,11 +493,21 @@ export function renderAdminUiScript() {
     } else if (text) {
       src = "https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=" + encodeURIComponent(text);
     }
-    if (src) $("qr").src = src;
-    if (!src) log("二维码生成失败：上游未返回可用二维码文本。 / QR generation failed.");
+    if (src) {
+      $("qr").src = src;
+      $("qrHint").textContent = "请使用微信扫码，然后点击刷新状态与确认入库。 / Scan with WeChat, then refresh and confirm.";
+    }
+    if (!src) {
+      $("qr").removeAttribute("src");
+      $("qrHint").textContent = "QR not generated yet. Click Start after filling ADMIN_TOKEN.";
+      log("QR generation failed: upstream did not return valid QR text.");
+    }
   };
 
   const api = async (path, method = "GET", body) => {
+    if (!token()) {
+      throw new Error("missing ADMIN_TOKEN: please fill Connection > ADMIN_TOKEN first");
+    }
     const reqId = ++st.reqSeq;
     const startedAt = Date.now();
     const res = await fetch(base() + path, {
@@ -669,6 +710,7 @@ export function renderAdminUiScript() {
 
   const startLogin = async () => {
     try {
+      if (!ensureToken("Start QR")) return;
       const d = await api("/admin/login/start", "POST", { baseUrl: $("qrBase").value.trim(), accountIdHint: $("accHint").value.trim() });
       st.sessionId = d.sessionId;
       localStorage.setItem("wg_session", st.sessionId);
@@ -680,6 +722,7 @@ export function renderAdminUiScript() {
 
   const statusLogin = async (silent) => {
     try {
+      if (!ensureToken("Refresh QR Status")) return null;
       if (!st.sessionId) return null;
       const d = await api("/admin/login/status?sessionId=" + encodeURIComponent(st.sessionId));
       $("loginInfo").textContent = JSON.stringify(d, null, 2);
@@ -693,7 +736,8 @@ export function renderAdminUiScript() {
 
   const confirmLogin = async () => {
     try {
-      if (!st.sessionId) throw new Error("请先开始扫码 / Start QR first");
+      if (!ensureToken("Confirm Login")) return;
+      if (!st.sessionId) throw new Error("Please start QR first");
       const d = await api("/admin/login/confirm", "POST", { sessionId: st.sessionId, accountId: $("accHint").value.trim() || undefined, space: $("space").value.trim() || "default" });
       $("loginInfo").textContent = JSON.stringify(d, null, 2);
       rememberUserId(extractUserId(d), d?.account?.accountId);
@@ -849,8 +893,10 @@ export function renderAdminUiScript() {
   renderLogs();
   setInboxAuto(false);
   loadConn();
-  initLoginSession();
-  listAccounts();
+  if (token()) {
+    initLoginSession();
+    listAccounts();
+  }
 })();
 `;
 
@@ -866,3 +912,5 @@ export function renderAdminUiScript() {
 export function notFound() {
   return json({ ok: false, error: "not found" }, 404);
 }
+
+
