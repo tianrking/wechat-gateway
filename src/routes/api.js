@@ -16,54 +16,58 @@ export async function handleApi(request, env) {
   const url = new URL(request.url);
   const body = request.method === "GET" || request.method === "DELETE" ? {} : await readJson(request);
 
-  if (request.method === "GET" && url.pathname === "/api/accounts") {
-    const items = await listAccounts(env.BOT_STATE);
-    return json({
-      ok: true,
-      items: items.map((a) => ({
-        accountId: a.accountId,
-        botId: a.botId,
-        baseUrl: a.baseUrl,
-        space: a.space,
-        enabled: a.enabled,
-        updatedAt: a.updatedAt,
-      })),
-    });
-  }
-
-  if (request.method === "DELETE" && url.pathname.startsWith("/api/accounts/")) {
-    const accountId = url.pathname.split("/").at(-1);
-    const account = await getAccount(env.BOT_STATE, accountId);
-    if (!account) return json({ ok: false, error: "account not found" }, 404);
-    await env.BOT_STATE.delete(`account:${accountId}`);
-    return json({ ok: true, deleted: accountId });
-  }
-
-  if (request.method === "POST" && url.pathname === "/api/send") {
-    if (!body.to || !body.text) {
-      return json({ ok: false, error: "missing to/text" }, 400);
+  try {
+    if (request.method === "GET" && url.pathname === "/api/accounts") {
+      const items = await listAccounts(env.BOT_STATE);
+      return json({
+        ok: true,
+        items: items.map((a) => ({
+          accountId: a.accountId,
+          botId: a.botId,
+          baseUrl: a.baseUrl,
+          space: a.space,
+          enabled: a.enabled,
+          updatedAt: a.updatedAt,
+        })),
+      });
     }
 
-    const accounts = await listAccounts(env.BOT_STATE);
-    const selected = pickAccount(accounts, body.to, body.accountId);
-    if (!selected) {
-      return json({ ok: false, error: "no enabled account available" }, 409);
+    if (request.method === "DELETE" && url.pathname.startsWith("/api/accounts/")) {
+      const accountId = url.pathname.split("/").at(-1);
+      const account = await getAccount(env.BOT_STATE, accountId);
+      if (!account) return json({ ok: false, error: "account not found" }, 404);
+      await env.BOT_STATE.delete(`account:${accountId}`);
+      return json({ ok: true, deleted: accountId });
     }
 
-    const contextToken = body.contextToken || (await getContextToken(env.BOT_STATE, selected.accountId, body.to));
-    await sendText(selected, {
-      toUserId: body.to,
-      text: String(body.text),
-      contextToken,
-      channelVersion: env.CHANNEL_VERSION,
-    });
+    if (request.method === "POST" && url.pathname === "/api/send") {
+      if (!body.to || !body.text) {
+        return json({ ok: false, error: "missing to/text" }, 400);
+      }
 
-    return json({
-      ok: true,
-      accountId: selected.accountId,
-      to: body.to,
-    });
+      const accounts = await listAccounts(env.BOT_STATE);
+      const selected = pickAccount(accounts, body.to, body.accountId);
+      if (!selected) {
+        return json({ ok: false, error: "no enabled account available" }, 409);
+      }
+
+      const contextToken = body.contextToken || (await getContextToken(env.BOT_STATE, selected.accountId, body.to));
+      await sendText(selected, {
+        toUserId: body.to,
+        text: String(body.text),
+        contextToken,
+        channelVersion: env.CHANNEL_VERSION,
+      });
+
+      return json({
+        ok: true,
+        accountId: selected.accountId,
+        to: body.to,
+      });
+    }
+
+    return json({ ok: false, error: "not found" }, 404);
+  } catch (err) {
+    return json({ ok: false, error: String(err?.message || err) }, 500);
   }
-
-  return json({ ok: false, error: "not found" }, 404);
 }

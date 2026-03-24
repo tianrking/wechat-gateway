@@ -91,6 +91,7 @@ function html() {
         <label>accountId（可选） <input id="sendAcc" placeholder="不填则自动选账号" /></label>
       </div>
       <div class="row">
+        <button type="button" class="alt" id="btnUseLoginUser">使用当前登录用户ID</button>
         <button type="button" id="btnSendTest">调用 /api/send</button>
       </div>
       <div class="hint">你后端直接调 <code>/api/send</code> 就行，不需要管理微信细节。</div>
@@ -120,7 +121,10 @@ export function renderAdminUi() {
 export function renderAdminUiScript() {
   const script = `
 (() => {
-  const st = { sessionId: localStorage.getItem("wg_session") || "" };
+  const st = {
+    sessionId: localStorage.getItem("wg_session") || "",
+    currentUserId: localStorage.getItem("wg_current_user_id") || "",
+  };
   const $ = (id) => document.getElementById(id);
   const logEl = $("log");
   const log = (x) => {
@@ -139,21 +143,42 @@ export function renderAdminUiScript() {
   const loadConn = () => {
     $("token").value = localStorage.getItem("wg_token") || "";
     $("base").value = localStorage.getItem("wg_base") || location.origin;
+    if (st.currentUserId) $("to").value = st.currentUserId;
   };
 
-  const setQr = (data) => {
+  const extractUserId = (data) => {
+    return (
+      data?.loginStatus?.ilink_user_id ||
+      data?.status?.ilink_user_id ||
+      data?.session?.rawStatus?.ilink_user_id ||
+      data?.rawStatus?.ilink_user_id ||
+      ""
+    );
+  };
+
+  const rememberUserId = (uid) => {
+    const userId = String(uid || "").trim();
+    if (!userId) return;
+    st.currentUserId = userId;
+    localStorage.setItem("wg_current_user_id", userId);
+    $("to").value = userId;
+  };
+
+  const setQr = async (data) => {
     const raw = data?.qrcode_img_content || data?.session?.qrcodeImg || data?.status?.qrcode_img_content || "";
     const qrt = data?.qrcode || data?.session?.qrcode || "";
+    const text = String(raw || qrt || "").trim();
     let src = "";
-    if (raw) {
-      const v = String(raw).trim();
-      if (v.startsWith("http://") || v.startsWith("https://") || v.startsWith("data:image/")) src = v;
-      else if (/^[A-Za-z0-9+/=]+$/.test(v) && v.length > 100) src = "data:image/png;base64," + v;
-      else src = "https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=" + encodeURIComponent(v);
-    } else if (qrt) {
-      src = "https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=" + encodeURIComponent(qrt);
+    if (text.startsWith("data:image/")) {
+      src = text;
+    } else if (/^[A-Za-z0-9+/=]+$/.test(text) && text.length > 200) {
+      src = "data:image/png;base64," + text;
+    } else if (text) {
+      // iLink commonly returns QR content text rather than direct image URL.
+      src = "https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=" + encodeURIComponent(text);
     }
     if (src) $("qr").src = src;
+    if (!src) log("二维码生成失败：上游未返回可用二维码文本。");
   };
 
   const api = async (path, method = "GET", body) => {
@@ -177,19 +202,22 @@ export function renderAdminUiScript() {
       st.sessionId = d.sessionId;
       localStorage.setItem("wg_session", st.sessionId);
       $("loginInfo").textContent = JSON.stringify(d, null, 2);
-      setQr(d);
+      await setQr(d);
       log(d);
     } catch (e) { log(String(e)); }
   };
 
-  const statusLogin = async () => {
+  const statusLogin = async (silent) => {
     try {
-      if (!st.sessionId) throw new Error("请先开始扫码");
+      if (!st.sessionId) return null;
       const d = await api("/admin/login/status?sessionId=" + encodeURIComponent(st.sessionId));
       $("loginInfo").textContent = JSON.stringify(d, null, 2);
-      setQr(d);
+      rememberUserId(extractUserId(d));
+      await setQr(d);
       log(d);
-    } catch (e) { log(String(e)); }
+      return d;
+    } catch (e) { if (!silent) log(String(e)); }
+    return null;
   };
 
   const confirmLogin = async () => {
@@ -197,6 +225,7 @@ export function renderAdminUiScript() {
       if (!st.sessionId) throw new Error("请先开始扫码");
       const d = await api("/admin/login/confirm", "POST", { sessionId: st.sessionId, accountId: $("accHint").value.trim() || undefined, space: $("space").value.trim() || "default" });
       $("loginInfo").textContent = JSON.stringify(d, null, 2);
+      rememberUserId(extractUserId(d));
       log(d);
       await listAccounts();
     } catch (e) { log(String(e)); }
@@ -243,15 +272,53 @@ export function renderAdminUiScript() {
     } catch (e) { log(String(e)); }
   };
 
+  const useLoginUser = () => {
+    if (st.currentUserId) {
+      $("to").value = st.currentUserId;
+      log("已填充当前登录用户ID: " + st.currentUserId);
+      return;
+    }
+    try {
+      const raw = $("loginInfo").textContent || "";
+      const data = raw ? JSON.parse(raw) : null;
+      const uid = extractUserId(data);
+      if (uid) {
+        rememberUserId(uid);
+        log("已从扫码会话信息提取用户ID: " + uid);
+      } else {
+        log("未找到用户ID，请先扫码并刷新状态/确认入库。");
+      }
+    } catch {
+      log("当前会话信息不是有效JSON，无法提取用户ID。");
+    }
+  };
+
+  const initLoginSession = async () => {
+    // On first page load, auto-start QR login so the UI is not empty.
+    if (!st.sessionId) {
+      await startLogin();
+      return;
+    }
+    const d = await statusLogin(true);
+    // Existing session may be expired/removed; create a new one automatically.
+    if (!d || !d.ok) {
+      st.sessionId = "";
+      localStorage.removeItem("wg_session");
+      await startLogin();
+    }
+  };
+
   $("btnSaveConn").addEventListener("click", saveConn);
   $("btnOverview").addEventListener("click", overview);
   $("btnStartLogin").addEventListener("click", startLogin);
-  $("btnStatusLogin").addEventListener("click", statusLogin);
+  $("btnStatusLogin").addEventListener("click", () => statusLogin(false));
   $("btnConfirmLogin").addEventListener("click", confirmLogin);
   $("btnListAccounts").addEventListener("click", listAccounts);
+  $("btnUseLoginUser").addEventListener("click", useLoginUser);
   $("btnSendTest").addEventListener("click", sendTest);
 
   loadConn();
+  initLoginSession();
   listAccounts();
 })();
 `;
