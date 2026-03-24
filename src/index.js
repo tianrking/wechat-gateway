@@ -1,5 +1,6 @@
-﻿import { handleAdmin } from "./routes/admin.js";
+import { handleAdmin } from "./routes/admin.js";
 import { handleApi } from "./routes/api.js";
+import { renderDocsUi } from "./routes/docs.js";
 import { renderAdminUi, renderAdminUiScript } from "./routes/ui.js";
 import { runPollCycle } from "./services/poller.js";
 import { requireAdmin } from "./utils/auth.js";
@@ -16,6 +17,10 @@ export default {
 
       if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/admin-ui")) {
         return renderAdminUi();
+      }
+
+      if (request.method === "GET" && url.pathname === "/docs") {
+        return renderDocsUi();
       }
 
       if (request.method === "GET" && url.pathname === "/admin-ui.js") {

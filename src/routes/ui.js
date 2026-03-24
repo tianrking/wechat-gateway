@@ -29,6 +29,7 @@ function html() {
     .log-item { border:1px solid #dbe3ef; border-radius:8px; background:#fff; }
     .log-item summary { cursor:pointer; padding:8px 10px; font-family:ui-monospace,Consolas,monospace; font-size:12px; color:#1b2430; }
     .log-item pre { margin:0; padding:10px; border-top:1px solid #e7edf7; background:#0e1116; color:#d6e0f2; font-family:ui-monospace,Consolas,monospace; font-size:12px; white-space:pre-wrap; }
+    .top-links a { display:inline-block; text-decoration:none; border-radius:8px; padding:8px 12px; background:#2f3a4d; color:#fff; font-size:13px; }
     table { width:100%; border-collapse: collapse; }
     th, td { border-bottom:1px solid #e7edf7; text-align:left; padding:8px; font-size:13px; }
     img { width:220px; height:220px; object-fit:contain; border:1px solid #dbe3ef; border-radius:8px; background:#fff; }
@@ -40,6 +41,9 @@ function html() {
     <div class="card">
       <h1>WeChat Gateway Lite</h1>
       <div class="hint">只保留你要的功能：扫码加号、管理多账号、REST 交互。 / Core only: QR onboarding, multi-account management, REST interaction.</div>
+      <div class="row top-links">
+        <a href="/docs" target="_blank" rel="noopener">API Docs</a>
+      </div>
     </div>
 
     <div class="card grid two">
