@@ -24,7 +24,7 @@ export default {
       }
 
       if (request.method === "GET" && url.pathname === "/admin-ui.js") {
-        return renderAdminUiScript(String(env.UI_LOGIN_REQUIRED || "").toLowerCase() === "true");
+        return renderAdminUiScript();
       }
 
       if (url.pathname.startsWith("/admin/") || url.pathname.startsWith("/api/")) {
