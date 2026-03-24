@@ -126,6 +126,23 @@ preview_id = "..."
 wrangler secret put ADMIN_TOKEN
 ```
 
+Optional: enable inbound media archive (image/file/video/voice download)
+
+1) Create an R2 bucket (for example `wechat-media`)  
+2) Add to `wrangler.toml`:
+
+```toml
+[vars]
+ENABLE_MEDIA_ARCHIVE = "true"
+WECHAT_CDN_BASE_URL = "https://novac2c.cdn.weixin.qq.com/c2c"
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "wechat-media"
+```
+
+When disabled (default), the system records media metadata only and does not download binary content.
+
 4. Local run
 
 ```bash
@@ -209,6 +226,7 @@ Content-Type: application/json
 - `GET /api/accounts`
 - `GET /api/contacts?accountId=...&limit=100`
 - `GET /api/inbox?accountId=...&limit=100` (read inbound messages)
+- `GET /api/inbox/media?accountId=...&key=...` (download archived media, requires R2 archive enabled)
 - `DELETE /api/inbox?accountId=...` (clear inbound for one account)
 - `POST /api/send`
 

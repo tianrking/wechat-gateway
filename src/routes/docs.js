@@ -123,6 +123,10 @@ const groups = [
       endpoint("GET", "/api/inbox", {
         query: "accountId=acc-a&limit=100",
       }),
+      endpoint("GET", "/api/inbox/media", {
+        summary: "Download archived media object from R2 (when archive enabled).",
+        query: "accountId=acc-a&key=inbound/acc-a/xxx.jpg",
+      }),
       endpoint("DELETE", "/api/inbox", {
         query: "accountId=acc-a",
       }),

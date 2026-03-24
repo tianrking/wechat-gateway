@@ -12,6 +12,14 @@ preview_id = "PUT_YOUR_PREVIEW_KV_NAMESPACE_ID"
 
 [vars]
 CHANNEL_VERSION = "cf-wechat-worker/0.1.0"
+# Optional media archive (R2) feature:
+# ENABLE_MEDIA_ARCHIVE = "false"
+# WECHAT_CDN_BASE_URL = "https://novac2c.cdn.weixin.qq.com/c2c"
+
+# Optional R2 binding for inbound media archive (only required when ENABLE_MEDIA_ARCHIVE=true):
+# [[r2_buckets]]
+# binding = "MEDIA_BUCKET"
+# bucket_name = "wechat-media"
 
 # Secrets (set with `wrangler secret put`):
 # ADMIN_TOKEN

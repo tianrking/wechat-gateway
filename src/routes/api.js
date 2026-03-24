@@ -66,12 +66,42 @@ export async function handleApi(request, env) {
           userId: x.userId,
           text: x.text,
           kind: x.kind || "text",
-          media: Array.isArray(x.media) ? x.media : [],
+          media: Array.isArray(x.media) ? x.media.map((m) => ({
+            type: m.type,
+            fileName: m.fileName || "",
+            size: m.size,
+            archived: m.archived === true,
+            contentType: m.contentType || "",
+            downloadPath: m.archived && m.r2Key
+              ? `/api/inbox/media?accountId=${encodeURIComponent(x.accountId)}&key=${encodeURIComponent(m.r2Key)}`
+              : "",
+            archiveReason: m.archiveReason || "",
+          })) : [],
           botId: x.botId,
           space: x.space,
           createdAt: x.createdAt,
         })),
       });
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/inbox/media") {
+      const accountId = String(url.searchParams.get("accountId") || "").trim();
+      const key = String(url.searchParams.get("key") || "").trim();
+      if (!accountId || !key) {
+        return json({ ok: false, error: "missing accountId/key" }, 400);
+      }
+      if (!key.startsWith(`inbound/${accountId}/`)) {
+        return json({ ok: false, error: "forbidden key/account mismatch" }, 403);
+      }
+      if (!env.MEDIA_BUCKET) {
+        return json({ ok: false, error: "MEDIA_BUCKET not configured" }, 409);
+      }
+      const obj = await env.MEDIA_BUCKET.get(key);
+      if (!obj) return json({ ok: false, error: "media not found" }, 404);
+      const headers = new Headers();
+      obj.writeHttpMetadata(headers);
+      headers.set("cache-control", "private, max-age=60");
+      return new Response(obj.body, { status: 200, headers });
     }
 
     if (request.method === "DELETE" && url.pathname === "/api/inbox") {

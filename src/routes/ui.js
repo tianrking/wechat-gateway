@@ -346,19 +346,50 @@ export function renderAdminUiScript() {
           const mediaBrief = media.map((m) => {
             const t = m?.type || "media";
             const n = m?.fileName ? (" " + m.fileName) : "";
-            return t + n;
+            const dl = m?.downloadPath
+              ? (" <button type='button' class='alt' data-dl='" + esc(m.downloadPath) + "' data-name='" + esc(m.fileName || (t + ".bin")) + "'>下载</button>")
+              : "";
+            const reason = m?.archiveReason ? (" (" + esc(m.archiveReason) + ")") : "";
+            return t + n + dl + reason;
           }).join(", ");
-          const content = x.text || mediaBrief || "";
+          const content = x.text ? esc(x.text) : (mediaBrief || "");
           return "<tr>"
             + "<td>" + fmtTime(x.createdAt) + "</td>"
             + "<td>" + (x.accountId || "") + "</td>"
             + "<td>" + (x.userId || "") + "</td>"
             + "<td>" + (x.kind || "text") + "</td>"
-            + "<td>" + esc(content) + "</td>"
+            + "<td>" + content + "</td>"
             + "</tr>";
         })()
       ).join("");
       $("inboxRows").innerHTML = rows || "<tr><td colspan='5'>暂无消息 / No inbound messages</td></tr>";
+      document.querySelectorAll("button[data-dl]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const path = btn.getAttribute("data-dl") || "";
+          const name = btn.getAttribute("data-name") || "media.bin";
+          if (!path) return;
+          try {
+            const res = await fetch(base() + path, {
+              method: "GET",
+              headers: { authorization: "Bearer " + token() },
+            });
+            if (!res.ok) {
+              const txt = await res.text();
+              throw new Error("download failed " + res.status + " " + txt);
+            }
+            const blob = await res.blob();
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = name;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+          } catch (e) {
+            log(String(e));
+          }
+        });
+      });
       return d;
     } catch (e) {
       log(String(e));

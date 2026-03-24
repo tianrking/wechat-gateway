@@ -16,6 +16,7 @@ import {
 } from "../store/accounts.js";
 import { listEnabledAgents } from "../store/agents.js";
 import { addInboundMessage } from "../store/inbox.js";
+import { maybeArchiveMediaToR2 } from "./media-archive.js";
 import { askAgent, extractText } from "./agent.js";
 import { getTypingTicket, getUpdates, sendText, sendTyping } from "./ilink.js";
 import { pickAgent } from "./router.js";
@@ -45,6 +46,10 @@ function extractInboundPayload(msg) {
         type: "image",
         fileName: item.image_item?.file_name || "",
         size: Number(item.image_item?.mid_size || 0) || undefined,
+        encryptQueryParam: item.image_item?.media?.encrypt_query_param || "",
+        aesKey: item.image_item?.aeskey
+          ? hexToBase64(item.image_item.aeskey)
+          : (item.image_item?.media?.aes_key || ""),
       });
       continue;
     }
@@ -52,6 +57,8 @@ function extractInboundPayload(msg) {
       media.push({
         type: "voice",
         size: Number(item.voice_item?.voice_size || 0) || undefined,
+        encryptQueryParam: item.voice_item?.media?.encrypt_query_param || "",
+        aesKey: item.voice_item?.media?.aes_key || "",
       });
       continue;
     }
@@ -60,6 +67,8 @@ function extractInboundPayload(msg) {
         type: "file",
         fileName: item.file_item?.file_name || "",
         size: Number(item.file_item?.len || 0) || undefined,
+        encryptQueryParam: item.file_item?.media?.encrypt_query_param || "",
+        aesKey: item.file_item?.media?.aes_key || "",
       });
       continue;
     }
@@ -67,6 +76,8 @@ function extractInboundPayload(msg) {
       media.push({
         type: "video",
         size: Number(item.video_item?.video_size || 0) || undefined,
+        encryptQueryParam: item.video_item?.media?.encrypt_query_param || "",
+        aesKey: item.video_item?.media?.aes_key || "",
       });
       continue;
     }
@@ -75,13 +86,49 @@ function extractInboundPayload(msg) {
   return { text, media };
 }
 
+function hexToBase64(hex) {
+  const clean = String(hex || "").trim();
+  if (!clean || !/^[0-9a-fA-F]+$/.test(clean) || clean.length % 2 !== 0) return "";
+  let bin = "";
+  for (let i = 0; i < clean.length; i += 2) {
+    bin += String.fromCharCode(parseInt(clean.slice(i, i + 2), 16));
+  }
+  return btoa(bin);
+}
+
 async function processOneInbound(account, msg, env) {
   const userId = msg?.from_user_id;
   const payload = extractInboundPayload(msg);
   const text = payload.text || extractText(msg?.item_list);
-  const media = payload.media || [];
-  if (!userId || (!text && media.length === 0)) return { handled: false, reason: "empty" };
+  const mediaRaw = payload.media || [];
+  if (!userId || (!text && mediaRaw.length === 0)) return { handled: false, reason: "empty" };
   const spaceName = account.space || "default";
+  const media = await Promise.all(
+    mediaRaw.map(async (m) => {
+      try {
+        const archived = await maybeArchiveMediaToR2(env, account, m);
+        return {
+          type: m.type,
+          fileName: m.fileName || "",
+          size: m.size,
+          archived: archived.stored === true,
+          r2Key: archived.key || "",
+          contentType: archived.contentType || "",
+          archiveReason: archived.stored ? "" : (archived.reason || ""),
+        };
+      } catch (err) {
+        return {
+          type: m.type,
+          fileName: m.fileName || "",
+          size: m.size,
+          archived: false,
+          r2Key: "",
+          contentType: "",
+          archiveReason: String(err?.message || err),
+        };
+      }
+    }),
+  );
 
   await touchContact(env.BOT_STATE, account.accountId, userId);
   await addInboundMessage(env.BOT_STATE, {

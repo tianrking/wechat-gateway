@@ -126,6 +126,23 @@ preview_id = "..."
 wrangler secret put ADMIN_TOKEN
 ```
 
+可选：开启入站媒体归档（图片/文件/视频/语音下载）
+
+1) 创建 R2 bucket（例如 `wechat-media`）  
+2) 在 `wrangler.toml` 中添加：
+
+```toml
+[vars]
+ENABLE_MEDIA_ARCHIVE = "true"
+WECHAT_CDN_BASE_URL = "https://novac2c.cdn.weixin.qq.com/c2c"
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "wechat-media"
+```
+
+不开启时（默认）不会下载媒体内容，只记录媒体元信息。
+
 4. 本地运行
 
 ```bash
@@ -209,6 +226,7 @@ Content-Type: application/json
 - `GET /api/accounts`
 - `GET /api/contacts?accountId=...&limit=100`
 - `GET /api/inbox?accountId=...&limit=100`（读取入站消息）
+- `GET /api/inbox/media?accountId=...&key=...`（下载已归档媒体，需开启 R2 归档）
 - `DELETE /api/inbox?accountId=...`（清空某账户入站消息）
 - `POST /api/send`
 
