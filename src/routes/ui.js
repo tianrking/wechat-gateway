@@ -30,6 +30,9 @@ function html() {
     .log-item summary { cursor:pointer; padding:8px 10px; font-family:ui-monospace,Consolas,monospace; font-size:12px; color:#1b2430; }
     .log-item pre { margin:0; padding:10px; border-top:1px solid #e7edf7; background:#0e1116; color:#d6e0f2; font-family:ui-monospace,Consolas,monospace; font-size:12px; white-space:pre-wrap; }
     .top-links a { display:inline-block; text-decoration:none; border-radius:8px; padding:8px 12px; background:#2f3a4d; color:#fff; font-size:13px; }
+    .auth-mask { position:fixed; inset:0; background:rgba(10,14,22,.55); display:none; align-items:center; justify-content:center; z-index:10000; padding:20px; }
+    .auth-box { width:min(420px,95vw); background:#fff; border:1px solid #dbe3ef; border-radius:12px; padding:14px; display:grid; gap:10px; }
+    .auth-msg { font-size:12px; color:#ca2f2f; min-height:18px; }
     .preview-mask { position:fixed; inset:0; background:rgba(10,14,22,.7); display:none; align-items:center; justify-content:center; padding:20px; z-index:9999; }
     .preview-box { width:min(960px,96vw); max-height:90vh; overflow:auto; background:#fff; border-radius:12px; border:1px solid #dbe3ef; padding:12px; display:grid; gap:10px; }
     .preview-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
@@ -142,6 +145,18 @@ function html() {
   </div>
 
   <script src="/admin-ui.js" defer></script>
+  <div id="authMask" class="auth-mask">
+    <div class="auth-box">
+      <h2>登录验证 / Login Required</h2>
+      <label>Admin Password (ADMIN_TOKEN)
+        <input id="authToken" type="password" placeholder="输入 ADMIN_TOKEN" />
+      </label>
+      <div class="row">
+        <button type="button" id="btnAuthLogin">登录 / Login</button>
+      </div>
+      <div id="authMsg" class="auth-msg"></div>
+    </div>
+  </div>
   <div id="previewMask" class="preview-mask">
     <div class="preview-box">
       <div class="preview-head">
@@ -189,6 +204,9 @@ export function renderAdminUiScript() {
   };
   const $ = (id) => document.getElementById(id);
   const logEl = $("log");
+  const authMask = $("authMask");
+  const authToken = $("authToken");
+  const authMsg = $("authMsg");
   const previewMask = $("previewMask");
   const previewBody = $("previewBody");
   const previewTitle = $("previewTitle");
@@ -272,6 +290,27 @@ export function renderAdminUiScript() {
   };
   const token = () => $("token").value.trim();
   const base = () => $("base").value.trim() || location.origin;
+  const showAuth = (msg) => {
+    authMsg.textContent = msg || "";
+    authMask.style.display = "flex";
+  };
+  const hideAuth = () => {
+    authMsg.textContent = "";
+    authMask.style.display = "none";
+  };
+
+  const verifyLogin = async (candidateToken) => {
+    const t = String(candidateToken || "").trim();
+    if (!t) return { ok: false, error: "请输入 ADMIN_TOKEN / Please enter ADMIN_TOKEN." };
+    const res = await fetch(base() + "/admin/overview", {
+      method: "GET",
+      headers: { authorization: "Bearer " + t },
+    });
+    if (!res.ok) {
+      return { ok: false, error: "口令无效或未配置 / Invalid token." };
+    }
+    return { ok: true };
+  };
 
   const selectedAccountId = () => $("sendAccSelect").value.trim();
   const INBOX_INTERVAL_MS = 10_000;
@@ -666,6 +705,26 @@ export function renderAdminUiScript() {
   $("btnInboxAuto").addEventListener("click", toggleInboxAuto);
   $("btnInboxClear").addEventListener("click", clearInbox);
   $("btnPreviewClose").addEventListener("click", closePreview);
+  $("btnAuthLogin").addEventListener("click", async () => {
+    try {
+      authMsg.textContent = "验证中... / Verifying...";
+      const t = authToken.value.trim();
+      $("token").value = t;
+      const check = await verifyLogin(t);
+      if (!check.ok) {
+        showAuth(check.error || "登录失败 / Login failed.");
+        return;
+      }
+      saveConn();
+      hideAuth();
+      setInboxAuto(true);
+      await initLoginSession();
+      await listAccounts();
+      await refreshInbox();
+    } catch (e) {
+      showAuth(String(e));
+    }
+  });
   $("previewMask").addEventListener("click", (e) => {
     if (e.target === previewMask) closePreview();
   });
@@ -679,11 +738,25 @@ export function renderAdminUiScript() {
   });
 
   renderLogs();
-  setInboxAuto(true);
   loadConn();
-  initLoginSession();
-  listAccounts();
-  refreshInbox();
+  (async () => {
+    try {
+      const t = token();
+      authToken.value = t;
+      const check = await verifyLogin(t);
+      if (!check.ok) {
+        showAuth("请先登录以访问管理界面。 / Please login to continue.");
+        return;
+      }
+      hideAuth();
+      setInboxAuto(true);
+      await initLoginSession();
+      await listAccounts();
+      await refreshInbox();
+    } catch (e) {
+      showAuth(String(e));
+    }
+  })();
 })();
 `;
 
