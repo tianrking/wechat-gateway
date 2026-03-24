@@ -120,6 +120,12 @@ const groups = [
       endpoint("GET", "/api/contacts", {
         query: "accountId=acc-a&limit=100",
       }),
+      endpoint("GET", "/api/inbox", {
+        query: "accountId=acc-a&limit=100",
+      }),
+      endpoint("DELETE", "/api/inbox", {
+        query: "accountId=acc-a",
+      }),
       endpoint("DELETE", "/api/accounts/{accountId}"),
       endpoint("POST", "/api/send", {
         summary: "Unified send API. Response includes upstream result.",
@@ -239,4 +245,3 @@ export function renderDocsUi() {
     },
   });
 }
-

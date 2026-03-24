@@ -22,5 +22,6 @@ export const Keys = {
   conv: (spaceName, userId, agentId) => `conv:${spaceName}:${userId}:${agentId}`,
   ctx: (accountId, userId) => `ctx:${accountId}:${userId}`,
   contact: (accountId, userId) => `contact:${accountId}:${userId}`,
+  inbox: (accountId, messageId) => `inbox:${accountId}:${messageId}`,
   login: (sessionId) => `login:${sessionId}`,
 };

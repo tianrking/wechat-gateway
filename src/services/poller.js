@@ -15,6 +15,7 @@ import {
   upsertAccount,
 } from "../store/accounts.js";
 import { listEnabledAgents } from "../store/agents.js";
+import { addInboundMessage } from "../store/inbox.js";
 import { askAgent, extractText } from "./agent.js";
 import { getTypingTicket, getUpdates, sendText, sendTyping } from "./ilink.js";
 import { pickAgent } from "./router.js";
@@ -31,14 +32,23 @@ async function processOneInbound(account, msg, env) {
   const userId = msg?.from_user_id;
   const text = extractText(msg?.item_list);
   if (!userId || !text) return { handled: false, reason: "empty" };
+  const spaceName = account.space || "default";
 
   await touchContact(env.BOT_STATE, account.accountId, userId);
+  await addInboundMessage(env.BOT_STATE, {
+    accountId: account.accountId,
+    userId,
+    text,
+    botId: account.botId,
+    space: spaceName,
+    contextToken: msg?.context_token || "",
+    createdAt: Date.now(),
+  });
 
   if (msg?.context_token) {
     await setContextToken(env.BOT_STATE, account.accountId, userId, msg.context_token);
   }
 
-  const spaceName = account.space || "default";
   const space = (await getSpace(env.BOT_STATE, spaceName)) || defaultSpace(spaceName);
   const binding = await getBinding(env.BOT_STATE, spaceName, userId);
 

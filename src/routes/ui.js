@@ -113,6 +113,19 @@ function html() {
       <div class="hint">收不到消息时，请先在微信里给机器人发一条消息触发会话，再重试发送。 / If messages are not received, send one message from WeChat first, then retry.</div>
     </div>
 
+    <div class="card grid">
+      <h2>入站消息（按账户查看） / Inbound Messages</h2>
+      <div class="row">
+        <button type="button" id="btnInboxRefresh">刷新消息 / Refresh Inbox</button>
+        <button type="button" class="alt" id="btnInboxClear">清空当前账户消息 / Clear Current Account Inbox</button>
+      </div>
+      <table>
+        <thead><tr><th>time</th><th>accountId</th><th>from</th><th>text</th></tr></thead>
+        <tbody id="inboxRows"></tbody>
+      </table>
+      <div class="hint">按“发送账号 / Sender Account”筛选；不选账号时显示全部。</div>
+    </div>
+
     <div class="card">
       <h2>日志 / Logs</h2>
       <div class="row">
@@ -153,6 +166,7 @@ export function renderAdminUiScript() {
     })(),
     accounts: [],
     contacts: [],
+    inbox: [],
     logs: [],
     reqSeq: 0,
   };
@@ -202,6 +216,11 @@ export function renderAdminUiScript() {
   const base = () => $("base").value.trim() || location.origin;
 
   const selectedAccountId = () => $("sendAccSelect").value.trim();
+  const fmtTime = (ts) => {
+    const n = Number(ts || 0);
+    if (!n) return "";
+    return new Date(n).toISOString().replace("T", " ").replace("Z", " UTC");
+  };
 
   const saveConn = () => {
     localStorage.setItem("wg_token", token());
@@ -310,6 +329,42 @@ export function renderAdminUiScript() {
     }
   };
 
+  const refreshInbox = async () => {
+    try {
+      const acc = selectedAccountId();
+      const q = acc ? ("?accountId=" + encodeURIComponent(acc) + "&limit=100") : "?limit=100";
+      const d = await api("/api/inbox" + q);
+      st.inbox = Array.isArray(d.items) ? d.items : [];
+      const rows = st.inbox.map((x) =>
+        "<tr>"
+        + "<td>" + fmtTime(x.createdAt) + "</td>"
+        + "<td>" + (x.accountId || "") + "</td>"
+        + "<td>" + (x.userId || "") + "</td>"
+        + "<td>" + esc(x.text || "") + "</td>"
+        + "</tr>"
+      ).join("");
+      $("inboxRows").innerHTML = rows || "<tr><td colspan='4'>暂无消息 / No inbound messages</td></tr>";
+      return d;
+    } catch (e) {
+      log(String(e));
+      return null;
+    }
+  };
+
+  const clearInbox = async () => {
+    try {
+      const acc = selectedAccountId();
+      if (!acc) {
+        log("请先选择发送账号后再清空对应消息。 / Select an account first.");
+        return;
+      }
+      if (!confirm("确认清空该账户的入站消息? / Clear inbox for account: " + acc + " ?")) return;
+      const d = await api("/api/inbox?accountId=" + encodeURIComponent(acc), "DELETE");
+      log(d);
+      await refreshInbox();
+    } catch (e) { log(String(e)); }
+  };
+
   const startLogin = async () => {
     try {
       const d = await api("/admin/login/start", "POST", { baseUrl: $("qrBase").value.trim(), accountIdHint: $("accHint").value.trim() });
@@ -361,6 +416,7 @@ export function renderAdminUiScript() {
       $("accRows").innerHTML = rows || "<tr><td colspan='5'>暂无账号 / No accounts</td></tr>";
       syncSendAccountSelect();
       await refreshContacts();
+      await refreshInbox();
 
       document.querySelectorAll("button[data-del]").forEach((btn) => {
         btn.addEventListener("click", async () => {
@@ -401,6 +457,7 @@ export function renderAdminUiScript() {
         accountId: accountId || undefined,
       });
       log(d);
+      await refreshInbox();
     } catch (e) { log(String(e)); }
   };
 
@@ -468,18 +525,22 @@ export function renderAdminUiScript() {
   $("btnUseRecent").addEventListener("click", useRecent);
   $("btnSendTest").addEventListener("click", sendTest);
   $("btnClearLogs").addEventListener("click", clearLogs);
+  $("btnInboxRefresh").addEventListener("click", refreshInbox);
+  $("btnInboxClear").addEventListener("click", clearInbox);
   $("sendAccSelect").addEventListener("change", async () => {
     const accountId = selectedAccountId();
     if (accountId && st.currentUserByAccount[accountId]) {
       $("to").value = st.currentUserByAccount[accountId];
     }
     await refreshContacts();
+    await refreshInbox();
   });
 
   renderLogs();
   loadConn();
   initLoginSession();
   listAccounts();
+  refreshInbox();
 })();
 `;
 

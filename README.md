@@ -190,6 +190,14 @@ Content-Type: application/json
 - `POST /admin/poll` body: `{ "accountId?": "acc-a" }`
 - `POST /admin/send` body: `{ "accountId": "acc-a", "to": "xxx@im.wechat", "text": "hello", "contextToken?": "..." }`
 
+### 8.10 Gateway APIs (for your backend)
+
+- `GET /api/accounts`
+- `GET /api/contacts?accountId=...&limit=100`
+- `GET /api/inbox?accountId=...&limit=100` (read inbound messages)
+- `DELETE /api/inbox?accountId=...` (clear inbound for one account)
+- `POST /api/send`
+
 ## 9. End-to-End Quick Flow
 
 1. Create agent:

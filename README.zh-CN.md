@@ -190,6 +190,14 @@ Content-Type: application/json
 - `POST /admin/poll` body：`{ "accountId?": "acc-a" }`
 - `POST /admin/send` body：`{ "accountId": "acc-a", "to": "xxx@im.wechat", "text": "hello", "contextToken?": "..." }`
 
+### 8.10 网关 API（给业务后端）
+
+- `GET /api/accounts`
+- `GET /api/contacts?accountId=...&limit=100`
+- `GET /api/inbox?accountId=...&limit=100`（读取入站消息）
+- `DELETE /api/inbox?accountId=...`（清空某账户入站消息）
+- `POST /api/send`
+
 ## 9. 快速全链路
 
 1. 创建 Agent：

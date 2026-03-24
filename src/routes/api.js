@@ -5,6 +5,7 @@ import {
   listContacts,
   touchContact,
 } from "../store/accounts.js";
+import { clearInboundMessages, listInboundMessages } from "../store/inbox.js";
 import { sendText } from "../services/ilink.js";
 import { hash32, json, readJson } from "../utils/common.js";
 
@@ -51,6 +52,30 @@ export async function handleApi(request, env) {
           updatedAt: x.updatedAt,
         })),
       });
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/inbox") {
+      const accountId = String(url.searchParams.get("accountId") || "").trim();
+      const limitRaw = Number(url.searchParams.get("limit") || 100);
+      const items = await listInboundMessages(env.BOT_STATE, accountId || undefined, limitRaw);
+      return json({
+        ok: true,
+        items: items.map((x) => ({
+          id: x.id,
+          accountId: x.accountId,
+          userId: x.userId,
+          text: x.text,
+          botId: x.botId,
+          space: x.space,
+          createdAt: x.createdAt,
+        })),
+      });
+    }
+
+    if (request.method === "DELETE" && url.pathname === "/api/inbox") {
+      const accountId = String(url.searchParams.get("accountId") || "").trim();
+      const deleted = await clearInboundMessages(env.BOT_STATE, accountId || undefined);
+      return json({ ok: true, deleted, accountId: accountId || null });
     }
 
     if (request.method === "DELETE" && url.pathname.startsWith("/api/accounts/")) {
