@@ -1,4 +1,4 @@
-﻿import { json } from "../utils/common.js";
+import { json } from "../utils/common.js";
 
 function html() {
   return `<!doctype html>
@@ -19,7 +19,7 @@ function html() {
     .two { grid-template-columns: repeat(2, minmax(0,1fr)); }
     .three { grid-template-columns: repeat(3, minmax(0,1fr)); }
     label { display:grid; gap:4px; font-size:12px; color:#5e6a7d; }
-    input { width:100%; border:1px solid #dbe3ef; border-radius:8px; padding:9px 10px; }
+    input, select { width:100%; border:1px solid #dbe3ef; border-radius:8px; padding:9px 10px; }
     .row { display:flex; gap:8px; flex-wrap:wrap; }
     button { border:0; border-radius:8px; padding:8px 12px; background:#1768ff; color:#fff; cursor:pointer; }
     button.alt { background:#2f3a4d; }
@@ -35,47 +35,47 @@ function html() {
   <div class="wrap">
     <div class="card">
       <h1>WeChat Gateway Lite</h1>
-      <div class="hint">只保留你要的功能：扫码加号、管理多账号、REST 交互。</div>
+      <div class="hint">????????:???????????REST ???</div>
     </div>
 
     <div class="card grid two">
       <div class="grid">
-        <h2>连接</h2>
-        <label>ADMIN_TOKEN <input id="token" type="password" placeholder="输入 ADMIN_TOKEN" /></label>
+        <h2>??</h2>
+        <label>ADMIN_TOKEN <input id="token" type="password" placeholder="?? ADMIN_TOKEN" /></label>
         <label>Base URL <input id="base" /></label>
         <div class="row">
-          <button type="button" id="btnSaveConn">保存</button>
-          <button type="button" class="alt" id="btnOverview">测试</button>
+          <button type="button" id="btnSaveConn">??</button>
+          <button type="button" class="alt" id="btnOverview">??</button>
         </div>
       </div>
       <div class="grid">
-        <h2>扫码添加账户</h2>
+        <h2>??????</h2>
         <label>iLink Base URL <input id="qrBase" value="https://ilinkai.weixin.qq.com" /></label>
-        <label>Account ID（可选） <input id="accHint" placeholder="如 acc-a" /></label>
+        <label>Account ID(??) <input id="accHint" placeholder="? acc-a" /></label>
         <label>Space <input id="space" value="default" /></label>
         <div class="row">
-          <button type="button" id="btnStartLogin">开始扫码</button>
-          <button type="button" class="alt" id="btnStatusLogin">刷新状态</button>
-          <button type="button" id="btnConfirmLogin">确认入库</button>
+          <button type="button" id="btnStartLogin">????</button>
+          <button type="button" class="alt" id="btnStatusLogin">????</button>
+          <button type="button" id="btnConfirmLogin">????</button>
         </div>
       </div>
     </div>
 
     <div class="card grid two">
       <div class="grid">
-        <h2>二维码</h2>
+        <h2>???</h2>
         <img id="qr" alt="QR" />
       </div>
       <div class="grid">
-        <h2>扫码会话信息</h2>
+        <h2>??????</h2>
         <div id="loginInfo" class="mono"></div>
       </div>
     </div>
 
     <div class="card grid">
-      <h2>账户管理（可添加多个，可删除）</h2>
+      <h2>????(?????,???)</h2>
       <div class="row">
-        <button type="button" id="btnListAccounts">刷新列表</button>
+        <button type="button" id="btnListAccounts">????</button>
       </div>
       <table>
         <thead><tr><th>accountId</th><th>botId</th><th>space</th><th>enabled</th><th>action</th></tr></thead>
@@ -84,21 +84,27 @@ function html() {
     </div>
 
     <div class="card grid">
-      <h2>REST 发送测试（统一接口）</h2>
+      <h2>REST ????(????)</h2>
       <div class="grid three">
         <label>to <input id="to" placeholder="xxx@im.wechat" /></label>
         <label>text <input id="text" placeholder="hello" /></label>
-        <label>accountId（可选） <input id="sendAcc" placeholder="不填则自动选账号" /></label>
+        <label>???? <select id="sendAccSelect"><option value="">?????</option></select></label>
+      </div>
+      <div class="grid two">
+        <label>?????(???)
+          <select id="contactPick"><option value="">??????</option></select>
+        </label>
       </div>
       <div class="row">
-        <button type="button" class="alt" id="btnUseLoginUser">使用当前登录用户ID</button>
-        <button type="button" id="btnSendTest">调用 /api/send</button>
+        <button type="button" class="alt" id="btnUseRecent">?????? to</button>
+        <button type="button" class="alt" id="btnUseLoginUser">????????ID</button>
+        <button type="button" id="btnSendTest">?? /api/send</button>
       </div>
-      <div class="hint">你后端直接调 <code>/api/send</code> 就行，不需要管理微信细节。</div>
+      <div class="hint">?????? <code>/api/send</code> ??,??????????</div>
     </div>
 
     <div class="card">
-      <h2>日志</h2>
+      <h2>??</h2>
       <div id="log" class="mono"></div>
     </div>
   </div>
@@ -124,6 +130,16 @@ export function renderAdminUiScript() {
   const st = {
     sessionId: localStorage.getItem("wg_session") || "",
     currentUserId: localStorage.getItem("wg_current_user_id") || "",
+    currentUserByAccount: (() => {
+      try {
+        const raw = localStorage.getItem("wg_user_by_account") || "{}";
+        return JSON.parse(raw) || {};
+      } catch {
+        return {};
+      }
+    })(),
+    accounts: [],
+    contacts: [],
   };
   const $ = (id) => document.getElementById(id);
   const logEl = $("log");
@@ -134,10 +150,12 @@ export function renderAdminUiScript() {
   const token = () => $("token").value.trim();
   const base = () => $("base").value.trim() || location.origin;
 
+  const selectedAccountId = () => $("sendAccSelect").value.trim();
+
   const saveConn = () => {
     localStorage.setItem("wg_token", token());
     localStorage.setItem("wg_base", base());
-    log("连接信息已保存");
+    log("???????");
   };
 
   const loadConn = () => {
@@ -156,11 +174,15 @@ export function renderAdminUiScript() {
     );
   };
 
-  const rememberUserId = (uid) => {
+  const rememberUserId = (uid, accountId) => {
     const userId = String(uid || "").trim();
     if (!userId) return;
     st.currentUserId = userId;
     localStorage.setItem("wg_current_user_id", userId);
+    if (accountId) {
+      st.currentUserByAccount[accountId] = userId;
+      localStorage.setItem("wg_user_by_account", JSON.stringify(st.currentUserByAccount));
+    }
     $("to").value = userId;
   };
 
@@ -174,11 +196,10 @@ export function renderAdminUiScript() {
     } else if (/^[A-Za-z0-9+/=]+$/.test(text) && text.length > 200) {
       src = "data:image/png;base64," + text;
     } else if (text) {
-      // iLink commonly returns QR content text rather than direct image URL.
       src = "https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=" + encodeURIComponent(text);
     }
     if (src) $("qr").src = src;
-    if (!src) log("二维码生成失败：上游未返回可用二维码文本。");
+    if (!src) log("???????:?????????????");
   };
 
   const api = async (path, method = "GET", body) => {
@@ -195,6 +216,38 @@ export function renderAdminUiScript() {
   };
 
   const overview = async () => { try { log(await api("/admin/overview")); } catch (e) { log(String(e)); } };
+
+  const syncSendAccountSelect = () => {
+    const sel = $("sendAccSelect");
+    const old = sel.value;
+    const options = ["<option value=''>?????</option>"];
+    st.accounts.forEach((a) => {
+      options.push("<option value='" + a.accountId + "'>" + a.accountId + " (" + (a.space || "default") + ")</option>");
+    });
+    sel.innerHTML = options.join("");
+    if (old && st.accounts.some((a) => a.accountId === old)) {
+      sel.value = old;
+    }
+  };
+
+  const refreshContacts = async () => {
+    try {
+      const acc = selectedAccountId();
+      const q = acc ? ("?accountId=" + encodeURIComponent(acc) + "&limit=100") : "?limit=100";
+      const d = await api("/api/contacts" + q);
+      st.contacts = Array.isArray(d.items) ? d.items : [];
+      const sel = $("contactPick");
+      const items = st.contacts.map((x) => {
+        const suffix = x.accountId ? (" [" + x.accountId + "]") : "";
+        return "<option value='" + x.userId + "'>" + x.userId + suffix + "</option>";
+      });
+      sel.innerHTML = "<option value=''>??????</option>" + items.join("");
+      return d;
+    } catch (e) {
+      log(String(e));
+      return null;
+    }
+  };
 
   const startLogin = async () => {
     try {
@@ -222,10 +275,10 @@ export function renderAdminUiScript() {
 
   const confirmLogin = async () => {
     try {
-      if (!st.sessionId) throw new Error("请先开始扫码");
+      if (!st.sessionId) throw new Error("??????");
       const d = await api("/admin/login/confirm", "POST", { sessionId: st.sessionId, accountId: $("accHint").value.trim() || undefined, space: $("space").value.trim() || "default" });
       $("loginInfo").textContent = JSON.stringify(d, null, 2);
-      rememberUserId(extractUserId(d));
+      rememberUserId(extractUserId(d), d?.account?.accountId);
       log(d);
       await listAccounts();
     } catch (e) { log(String(e)); }
@@ -234,22 +287,25 @@ export function renderAdminUiScript() {
   const listAccounts = async () => {
     try {
       const d = await api("/api/accounts");
-      const rows = (d.items || []).map((a) =>
+      st.accounts = Array.isArray(d.items) ? d.items : [];
+      const rows = st.accounts.map((a) =>
         "<tr>"
         + "<td>" + a.accountId + "</td>"
         + "<td>" + (a.botId || "") + "</td>"
         + "<td>" + (a.space || "") + "</td>"
         + "<td>" + String(a.enabled) + "</td>"
-        + "<td><button type='button' class='bad' data-del='" + a.accountId + "'>删除</button></td>"
+        + "<td><button type='button' class='bad' data-del='" + a.accountId + "'>??</button></td>"
         + "</tr>"
       ).join("");
-      $("accRows").innerHTML = rows || "<tr><td colspan='5'>暂无账号</td></tr>";
+      $("accRows").innerHTML = rows || "<tr><td colspan='5'>????</td></tr>";
+      syncSendAccountSelect();
+      await refreshContacts();
 
       document.querySelectorAll("button[data-del]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const id = btn.getAttribute("data-del");
           if (!id) return;
-          if (!confirm("确认删除账号 " + id + " ?")) return;
+          if (!confirm("?????? " + id + " ?")) return;
           try {
             log(await api("/api/accounts/" + encodeURIComponent(id), "DELETE"));
             await listAccounts();
@@ -257,25 +313,37 @@ export function renderAdminUiScript() {
         });
       });
 
-      log("accounts=" + (d.items || []).length);
+      log("accounts=" + st.accounts.length);
     } catch (e) { log(String(e)); }
   };
 
   const sendTest = async () => {
     try {
+      const accountId = selectedAccountId();
       const d = await api("/api/send", "POST", {
         to: $("to").value.trim(),
         text: $("text").value,
-        accountId: $("sendAcc").value.trim() || undefined,
+        accountId: accountId || undefined,
       });
+      if (accountId && $("to").value.trim()) {
+        rememberUserId($("to").value.trim(), accountId);
+      }
       log(d);
+      await refreshContacts();
     } catch (e) { log(String(e)); }
   };
 
   const useLoginUser = () => {
+    const accountId = selectedAccountId();
+    const mapped = accountId ? st.currentUserByAccount[accountId] : "";
+    if (mapped) {
+      $("to").value = mapped;
+      log("????????????ID: " + mapped);
+      return;
+    }
     if (st.currentUserId) {
       $("to").value = st.currentUserId;
-      log("已填充当前登录用户ID: " + st.currentUserId);
+      log("?????????ID: " + st.currentUserId);
       return;
     }
     try {
@@ -283,24 +351,34 @@ export function renderAdminUiScript() {
       const data = raw ? JSON.parse(raw) : null;
       const uid = extractUserId(data);
       if (uid) {
-        rememberUserId(uid);
-        log("已从扫码会话信息提取用户ID: " + uid);
+        rememberUserId(uid, accountId);
+        log("????????????ID: " + uid);
       } else {
-        log("未找到用户ID，请先扫码并刷新状态/确认入库。");
+        log("?????ID,?????????/?????");
       }
     } catch {
-      log("当前会话信息不是有效JSON，无法提取用户ID。");
+      log("??????????JSON,??????ID?");
     }
   };
 
+  const useRecent = () => {
+    const uid = $("contactPick").value.trim();
+    if (!uid) {
+      log("??????????");
+      return;
+    }
+    $("to").value = uid;
+    const accountId = selectedAccountId();
+    if (accountId) rememberUserId(uid, accountId);
+    log("??????: " + uid);
+  };
+
   const initLoginSession = async () => {
-    // On first page load, auto-start QR login so the UI is not empty.
     if (!st.sessionId) {
       await startLogin();
       return;
     }
     const d = await statusLogin(true);
-    // Existing session may be expired/removed; create a new one automatically.
     if (!d || !d.ok) {
       st.sessionId = "";
       localStorage.removeItem("wg_session");
@@ -315,7 +393,15 @@ export function renderAdminUiScript() {
   $("btnConfirmLogin").addEventListener("click", confirmLogin);
   $("btnListAccounts").addEventListener("click", listAccounts);
   $("btnUseLoginUser").addEventListener("click", useLoginUser);
+  $("btnUseRecent").addEventListener("click", useRecent);
   $("btnSendTest").addEventListener("click", sendTest);
+  $("sendAccSelect").addEventListener("change", async () => {
+    const accountId = selectedAccountId();
+    if (accountId && st.currentUserByAccount[accountId]) {
+      $("to").value = st.currentUserByAccount[accountId];
+    }
+    await refreshContacts();
+  });
 
   loadConn();
   initLoginSession();

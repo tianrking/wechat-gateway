@@ -1,4 +1,10 @@
-﻿import { getAccount, getContextToken, listAccounts } from "../store/accounts.js";
+import {
+  getAccount,
+  getContextToken,
+  listAccounts,
+  listContacts,
+  touchContact,
+} from "../store/accounts.js";
 import { sendText } from "../services/ilink.js";
 import { hash32, json, readJson } from "../utils/common.js";
 
@@ -32,6 +38,21 @@ export async function handleApi(request, env) {
       });
     }
 
+    if (request.method === "GET" && url.pathname === "/api/contacts") {
+      const accountId = String(url.searchParams.get("accountId") || "").trim();
+      const limitRaw = Number(url.searchParams.get("limit") || 50);
+      const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.floor(limitRaw))) : 50;
+      const items = await listContacts(env.BOT_STATE, accountId || undefined);
+      return json({
+        ok: true,
+        items: items.slice(0, limit).map((x) => ({
+          accountId: x.accountId,
+          userId: x.userId,
+          updatedAt: x.updatedAt,
+        })),
+      });
+    }
+
     if (request.method === "DELETE" && url.pathname.startsWith("/api/accounts/")) {
       const accountId = url.pathname.split("/").at(-1);
       const account = await getAccount(env.BOT_STATE, accountId);
@@ -58,6 +79,7 @@ export async function handleApi(request, env) {
         contextToken,
         channelVersion: env.CHANNEL_VERSION,
       });
+      await touchContact(env.BOT_STATE, selected.accountId, body.to);
 
       return json({
         ok: true,

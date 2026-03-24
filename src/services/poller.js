@@ -11,6 +11,7 @@ import {
   getContextToken,
   listAccounts,
   setContextToken,
+  touchContact,
   upsertAccount,
 } from "../store/accounts.js";
 import { listEnabledAgents } from "../store/agents.js";
@@ -30,6 +31,8 @@ async function processOneInbound(account, msg, env) {
   const userId = msg?.from_user_id;
   const text = extractText(msg?.item_list);
   if (!userId || !text) return { handled: false, reason: "empty" };
+
+  await touchContact(env.BOT_STATE, account.accountId, userId);
 
   if (msg?.context_token) {
     await setContextToken(env.BOT_STATE, account.accountId, userId, msg.context_token);

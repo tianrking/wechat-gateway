@@ -21,5 +21,6 @@ export const Keys = {
   bind: (spaceName, userId) => `bind:${spaceName}:${userId}`,
   conv: (spaceName, userId, agentId) => `conv:${spaceName}:${userId}:${agentId}`,
   ctx: (accountId, userId) => `ctx:${accountId}:${userId}`,
+  contact: (accountId, userId) => `contact:${accountId}:${userId}`,
   login: (sessionId) => `login:${sessionId}`,
 };
