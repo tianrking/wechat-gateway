@@ -336,3 +336,4 @@ Notes:
 
 - Enter `ADMIN_TOKEN` in `/admin-ui` to use QR onboarding, account management, send test, manual poll, and inbound message viewer.
 - Inbound panel supports per-account filter and 10-second auto-refresh.
+- Homepage login overlay is disabled by default; set `UI_LOGIN_REQUIRED = "true"` in `wrangler.toml` to enable it.

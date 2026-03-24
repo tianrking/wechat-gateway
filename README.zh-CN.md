@@ -336,3 +336,4 @@ MIT
 
 - 在 `/admin-ui` 中输入 `ADMIN_TOKEN` 后可在线完成扫码登录、账号管理、发送测试、手动轮询、入站消息查看。
 - 入站消息支持按账号筛选，支持每 10 秒自动刷新。
+- 首页登录遮罩默认关闭；如需开启可在 `wrangler.toml` 设置 `UI_LOGIN_REQUIRED = "true"`。

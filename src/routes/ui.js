@@ -180,9 +180,10 @@ export function renderAdminUi() {
   });
 }
 
-export function renderAdminUiScript() {
+export function renderAdminUiScript(loginGateEnabled = false) {
   const script = `
 (() => {
+  const LOGIN_GATE_ENABLED = ${loginGateEnabled ? "true" : "false"};
   const st = {
     sessionId: localStorage.getItem("wg_session") || "",
     currentUserId: localStorage.getItem("wg_current_user_id") || "",
@@ -706,6 +707,7 @@ export function renderAdminUiScript() {
   $("btnInboxClear").addEventListener("click", clearInbox);
   $("btnPreviewClose").addEventListener("click", closePreview);
   $("btnAuthLogin").addEventListener("click", async () => {
+    if (!LOGIN_GATE_ENABLED) return;
     try {
       authMsg.textContent = "验证中... / Verifying...";
       const t = authToken.value.trim();
@@ -741,6 +743,14 @@ export function renderAdminUiScript() {
   loadConn();
   (async () => {
     try {
+      if (!LOGIN_GATE_ENABLED) {
+        hideAuth();
+        setInboxAuto(true);
+        await initLoginSession();
+        await listAccounts();
+        await refreshInbox();
+        return;
+      }
       const t = token();
       authToken.value = t;
       const check = await verifyLogin(t);
