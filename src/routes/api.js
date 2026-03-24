@@ -73,7 +73,7 @@ export async function handleApi(request, env) {
       }
 
       const contextToken = body.contextToken || (await getContextToken(env.BOT_STATE, selected.accountId, body.to));
-      await sendText(selected, {
+      const upstream = await sendText(selected, {
         toUserId: body.to,
         text: String(body.text),
         contextToken,
@@ -85,6 +85,7 @@ export async function handleApi(request, env) {
         ok: true,
         accountId: selected.accountId,
         to: body.to,
+        upstream,
       });
     }
 
