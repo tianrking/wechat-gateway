@@ -1,0 +1,17 @@
+{
+  "name": "cf-wechat-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "check": "node --check src/index.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.11.1"
+  },
+  "dependencies": {
+    "@tencent-weixin/openclaw-weixin": "^1.0.3"
+  }
+}

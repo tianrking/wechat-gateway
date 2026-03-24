@@ -1,0 +1,19 @@
+﻿name = "cf-wechat-worker"
+main = "src/index.js"
+compatibility_date = "2026-03-24"
+
+[triggers]
+crons = ["*/1 * * * *"]
+
+[[kv_namespaces]]
+binding = "BOT_STATE"
+id = "PUT_YOUR_KV_NAMESPACE_ID"
+preview_id = "PUT_YOUR_PREVIEW_KV_NAMESPACE_ID"
+
+[vars]
+CHANNEL_VERSION = "cf-wechat-worker/0.1.0"
+
+# Secrets (set with `wrangler secret put`):
+# ADMIN_TOKEN
+# Optional per-agent API keys can be stored in agent config in KV for PoC,
+# or reference external secret managers.
