@@ -25,6 +25,10 @@ function html() {
     button.alt { background:#2f3a4d; }
     button.bad { background:#ca2f2f; }
     .mono { background:#0e1116; color:#d6e0f2; font-family:ui-monospace,Consolas,monospace; font-size:12px; border-radius:8px; padding:10px; white-space:pre-wrap; max-height:280px; overflow:auto; }
+    .log-list { max-height:320px; overflow:auto; display:grid; gap:8px; }
+    .log-item { border:1px solid #dbe3ef; border-radius:8px; background:#fff; }
+    .log-item summary { cursor:pointer; padding:8px 10px; font-family:ui-monospace,Consolas,monospace; font-size:12px; color:#1b2430; }
+    .log-item pre { margin:0; padding:10px; border-top:1px solid #e7edf7; background:#0e1116; color:#d6e0f2; font-family:ui-monospace,Consolas,monospace; font-size:12px; white-space:pre-wrap; }
     table { width:100%; border-collapse: collapse; }
     th, td { border-bottom:1px solid #e7edf7; text-align:left; padding:8px; font-size:13px; }
     img { width:220px; height:220px; object-fit:contain; border:1px solid #dbe3ef; border-radius:8px; background:#fff; }
@@ -106,7 +110,7 @@ function html() {
 
     <div class="card">
       <h2>日志 / Logs</h2>
-      <div id="log" class="mono"></div>
+      <div id="log" class="log-list"></div>
     </div>
   </div>
 
@@ -141,12 +145,46 @@ export function renderAdminUiScript() {
     })(),
     accounts: [],
     contacts: [],
+    logs: [],
+    reqSeq: 0,
   };
   const $ = (id) => document.getElementById(id);
   const logEl = $("log");
+  const esc = (v) => String(v || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+  const stringify = (v) => {
+    if (typeof v === "string") return v;
+    try { return JSON.stringify(v, null, 2); } catch { return String(v); }
+  };
+  const renderLogs = () => {
+    if (!st.logs.length) {
+      logEl.innerHTML = "<div class='hint'>No logs yet.</div>";
+      return;
+    }
+    logEl.innerHTML = st.logs.map((item) => {
+      const req = item.request ? ("[request]\\n" + stringify(item.request) + "\\n\\n") : "";
+      const res = item.response ? ("[response]\\n" + stringify(item.response) + "\\n\\n") : "";
+      const err = item.error ? ("[error]\\n" + stringify(item.error)) : "";
+      const body = esc((req + res + err).trim());
+      return "<details class='log-item'" + (item.open ? " open" : "") + ">"
+        + "<summary>" + esc(item.summary) + "</summary>"
+        + "<pre>" + body + "</pre>"
+        + "</details>";
+    }).join("");
+  };
+  const pushLog = (entry) => {
+    st.logs.unshift(entry);
+    if (st.logs.length > 120) st.logs.length = 120;
+    renderLogs();
+  };
   const log = (x) => {
-    const old = logEl.textContent || "";
-    logEl.textContent = "[" + new Date().toISOString() + "]\\n" + (typeof x === "string" ? x : JSON.stringify(x, null, 2)) + "\\n\\n" + old;
+    pushLog({
+      summary: "[" + new Date().toISOString() + "] note",
+      response: typeof x === "string" ? { message: x } : x,
+      open: false,
+    });
   };
   const token = () => $("token").value.trim();
   const base = () => $("base").value.trim() || location.origin;
@@ -204,6 +242,8 @@ export function renderAdminUiScript() {
   };
 
   const api = async (path, method = "GET", body) => {
+    const reqId = ++st.reqSeq;
+    const startedAt = Date.now();
     const res = await fetch(base() + path, {
       method,
       headers: { "content-type": "application/json", authorization: "Bearer " + token() },
@@ -212,6 +252,14 @@ export function renderAdminUiScript() {
     const txt = await res.text();
     let d;
     try { d = JSON.parse(txt); } catch { d = { raw: txt }; }
+    const costMs = Date.now() - startedAt;
+    pushLog({
+      summary: "[" + new Date().toISOString() + "] #" + reqId + " " + method + " " + path + " -> " + res.status + " (" + costMs + "ms)",
+      request: { method, path, body: body || null },
+      response: d,
+      error: res.ok ? null : { status: res.status },
+      open: !res.ok,
+    });
     if (!res.ok) throw new Error(String(res.status) + " " + JSON.stringify(d));
     return d;
   };
@@ -404,6 +452,7 @@ export function renderAdminUiScript() {
     await refreshContacts();
   });
 
+  renderLogs();
   loadConn();
   initLoginSession();
   listAccounts();
