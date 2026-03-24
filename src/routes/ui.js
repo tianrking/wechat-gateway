@@ -180,6 +180,12 @@ export function renderAdminUiScript() {
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+  const attrEsc = (v) => String(v || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#39;");
   const stringify = (v) => {
     if (typeof v === "string") return v;
     try { return JSON.stringify(v, null, 2); } catch { return String(v); }
@@ -347,7 +353,7 @@ export function renderAdminUiScript() {
             const t = m?.type || "media";
             const n = m?.fileName ? (" " + m.fileName) : "";
             const dl = m?.downloadPath
-              ? (" <button type='button' class='alt' data-dl='" + esc(m.downloadPath) + "' data-name='" + esc(m.fileName || (t + ".bin")) + "'>下载</button>")
+              ? (" <button type='button' class='alt' data-dl='" + attrEsc(m.downloadPath) + "' data-name='" + attrEsc(m.downloadName || m.fileName || (t + ".bin")) + "'>下载</button>")
               : "";
             const reason = m?.archiveReason ? (" (" + esc(m.archiveReason) + ")") : "";
             return t + n + dl + reason;

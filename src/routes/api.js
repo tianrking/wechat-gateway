@@ -9,6 +9,15 @@ import { clearInboundMessages, listInboundMessages } from "../store/inbox.js";
 import { sendText } from "../services/ilink.js";
 import { hash32, json, readJson } from "../utils/common.js";
 
+function mediaFallbackName(m) {
+  const type = String(m?.type || "media");
+  if (type === "image") return "image.jpg";
+  if (type === "video") return "video.mp4";
+  if (type === "voice") return "voice.silk";
+  if (type === "file") return "file.bin";
+  return "media.bin";
+}
+
 function pickAccount(accounts, to, preferredId) {
   if (preferredId) {
     return accounts.find((a) => a.accountId === preferredId) || null;
@@ -72,6 +81,9 @@ export async function handleApi(request, env) {
             size: m.size,
             archived: m.archived === true,
             contentType: m.contentType || "",
+            downloadName: m.fileName
+              || (String(m.r2Key || "").split("/").pop() || "")
+              || mediaFallbackName(m),
             downloadPath: m.archived && m.r2Key
               ? `/api/inbox/media?accountId=${encodeURIComponent(x.accountId)}&key=${encodeURIComponent(m.r2Key)}`
               : "",
