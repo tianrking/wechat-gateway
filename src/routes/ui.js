@@ -41,6 +41,7 @@ function html() {
     <div class="card">
       <h1>WeChat Gateway Lite</h1>
       <div class="hint">只保留你要的功能：扫码加号、管理多账号、REST 交互。 / Core only: QR onboarding, multi-account management, REST interaction.</div>
+      <div class="hint">Author: w0x7ce</div>
       <div class="row top-links">
         <a href="/docs" target="_blank" rel="noopener">API Docs</a>
       </div>

@@ -31,6 +31,13 @@
   - 调用 HTTP 大模型
   - 回发微信文本
   - typing 状态支持
+- 入站消息面板：
+  - 按账号存储与展示入站消息
+  - 支持按账号筛选与清空
+  - 支持每 10 秒自动刷新
+- 管理界面增强：
+  - `/admin-ui` 统一管理页面
+  - `/docs` 轻量接口文档页面（可展开查看示例）
 - 会话存储：
   - 按 `space:user:agent` 保存历史（自动裁剪）
   - 提供查询与清理接口
@@ -46,6 +53,8 @@
   - `space:*`
   - `bind:*`
   - `ctx:*`（context token）
+  - `contact:*`（联系人）
+  - `inbox:*`（入站消息）
   - `conv:*`（会话历史）
   - `login:*`（扫码会话）
 
@@ -57,6 +66,9 @@ src/
   index.js
   routes/
     admin.js
+    api.js
+    docs.js
+    ui.js
   services/
     agent.js
     ilink.js
@@ -69,6 +81,7 @@ src/
     spaces.js
     bindings.js
     conversations.js
+    inbox.js
     logins.js
   utils/
     auth.js
@@ -274,7 +287,7 @@ curl -X POST "$WORKER/admin/poll" \
 
 FastAPI 通过服务端调用 Worker API，不建议客户端直接访问 Worker 管理接口。
 
-## 11. 生产建议
+## 12. 生产建议
 
 - KV 为最终一致；若需要强一致和账号轮询锁，建议将控制数据迁移到 D1，并用 Durable Objects 做账号级轮询锁。
 - 生产环境不要把模型 API key 长期明文放 KV，建议接入密钥管理服务。
@@ -283,11 +296,22 @@ FastAPI 通过服务端调用 Worker API，不建议客户端直接访问 Worker
   - ingress poller
   - async queue consumer
 
-## 12. 合规边界
+## 13. 合规边界
 
 仅在账号授权与平台规范范围内使用。本项目提供的是接入与管理基础设施，不提供规避机制工具。
 
-## 13. 许可证
+## 14. 许可证
 
 MIT
-\n## Web 管理界面\n\n部署完成后，直接访问：\n\n- https://<你的worker域名>/admin-ui\n\n在页面里输入 ADMIN_TOKEN 后，即可在线完成扫码登录与账号入库。\n
+
+## 15. Web 管理界面
+
+部署完成后可直接访问：
+
+- `https://<你的worker域名>/admin-ui`
+- `https://<你的worker域名>/docs`
+
+说明：
+
+- 在 `/admin-ui` 中输入 `ADMIN_TOKEN` 后可在线完成扫码登录、账号管理、发送测试、手动轮询、入站消息查看。
+- 入站消息支持按账号筛选，支持每 10 秒自动刷新。

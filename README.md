@@ -31,6 +31,13 @@ Cloudflare Workers based WeChat iLink gateway with multi-account pool, routing, 
   - call HTTP LLM endpoint
   - send text replies to WeChat
   - typing indicator support
+- Inbound message panel:
+  - per-account inbound storage and display
+  - per-account filter and clear
+  - 10s auto-refresh in Web UI
+- Admin UI enhancements:
+  - `/admin-ui` unified control page
+  - `/docs` lightweight interactive API docs
 - Conversation storage:
   - per `space:user:agent` message history (trimmed)
   - list and clear APIs
@@ -46,6 +53,8 @@ Cloudflare Workers based WeChat iLink gateway with multi-account pool, routing, 
   - `space:*`
   - `bind:*`
   - `ctx:*` (context token)
+  - `contact:*` (contacts)
+  - `inbox:*` (inbound messages)
   - `conv:*` (conversation history)
   - `login:*` (QR login session)
 
@@ -57,6 +66,9 @@ src/
   index.js
   routes/
     admin.js
+    api.js
+    docs.js
+    ui.js
   services/
     agent.js
     ilink.js
@@ -69,6 +81,7 @@ src/
     spaces.js
     bindings.js
     conversations.js
+    inbox.js
     logins.js
   utils/
     auth.js
@@ -274,7 +287,7 @@ Recommended split:
 
 FastAPI should call Worker APIs with server-to-server token and keep client apps away from direct Worker admin access.
 
-## 11. Production Notes
+## 12. Production Notes
 
 - KV is eventually consistent. For strict consistency and poll-locking, migrate control state to D1 and account poll locks to Durable Objects.
 - Keep API keys out of KV for production (use secret manager).
@@ -283,11 +296,22 @@ FastAPI should call Worker APIs with server-to-server token and keep client apps
   - ingress poller
   - async queue consumer
 
-## 12. Compliance Boundary
+## 13. Compliance Boundary
 
 Use only authorized own accounts and compliant platform workflows. This project provides integration and management infrastructure, not bypass tooling.
 
-## 13. License
+## 14. License
 
 MIT
-\n## Web Admin UI\n\nAfter deployment, open:\n\n- https://<your-worker-domain>/admin-ui\n\nEnter ADMIN_TOKEN in the page, then you can run QR login and account onboarding online.\n
+
+## 15. Web UI
+
+After deployment, open:
+
+- `https://<your-worker-domain>/admin-ui`
+- `https://<your-worker-domain>/docs`
+
+Notes:
+
+- Enter `ADMIN_TOKEN` in `/admin-ui` to use QR onboarding, account management, send test, manual poll, and inbound message viewer.
+- Inbound panel supports per-account filter and 10-second auto-refresh.
