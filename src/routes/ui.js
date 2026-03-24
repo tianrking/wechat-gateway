@@ -30,6 +30,10 @@ function html() {
     .log-item summary { cursor:pointer; padding:8px 10px; font-family:ui-monospace,Consolas,monospace; font-size:12px; color:#1b2430; }
     .log-item pre { margin:0; padding:10px; border-top:1px solid #e7edf7; background:#0e1116; color:#d6e0f2; font-family:ui-monospace,Consolas,monospace; font-size:12px; white-space:pre-wrap; }
     .top-links a { display:inline-block; text-decoration:none; border-radius:8px; padding:8px 12px; background:#2f3a4d; color:#fff; font-size:13px; }
+    .preview-mask { position:fixed; inset:0; background:rgba(10,14,22,.7); display:none; align-items:center; justify-content:center; padding:20px; z-index:9999; }
+    .preview-box { width:min(960px,96vw); max-height:90vh; overflow:auto; background:#fff; border-radius:12px; border:1px solid #dbe3ef; padding:12px; display:grid; gap:10px; }
+    .preview-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .preview-body img, .preview-body video { max-width:100%; max-height:72vh; border-radius:8px; border:1px solid #e7edf7; background:#000; }
     table { width:100%; border-collapse: collapse; }
     th, td { border-bottom:1px solid #e7edf7; text-align:left; padding:8px; font-size:13px; }
     img { width:220px; height:220px; object-fit:contain; border:1px solid #dbe3ef; border-radius:8px; background:#fff; }
@@ -138,6 +142,15 @@ function html() {
   </div>
 
   <script src="/admin-ui.js" defer></script>
+  <div id="previewMask" class="preview-mask">
+    <div class="preview-box">
+      <div class="preview-head">
+        <strong id="previewTitle">Preview</strong>
+        <button type="button" class="bad" id="btnPreviewClose">关闭 / Close</button>
+      </div>
+      <div class="preview-body" id="previewBody"></div>
+    </div>
+  </div>
 </body>
 </html>`;
 }
@@ -176,6 +189,10 @@ export function renderAdminUiScript() {
   };
   const $ = (id) => document.getElementById(id);
   const logEl = $("log");
+  const previewMask = $("previewMask");
+  const previewBody = $("previewBody");
+  const previewTitle = $("previewTitle");
+  let previewUrl = "";
   const esc = (v) => String(v || "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -221,6 +238,37 @@ export function renderAdminUiScript() {
   const clearLogs = () => {
     st.logs = [];
     renderLogs();
+  };
+  const closePreview = () => {
+    previewMask.style.display = "none";
+    previewBody.innerHTML = "";
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      previewUrl = "";
+    }
+  };
+  const openPreview = async (path, mode, name) => {
+    try {
+      const res = await fetch(base() + path, {
+        method: "GET",
+        headers: { authorization: "Bearer " + token() },
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error("preview failed " + res.status + " " + txt);
+      }
+      const blob = await res.blob();
+      previewUrl = URL.createObjectURL(blob);
+      previewTitle.textContent = name || "Preview";
+      if (mode === "video") {
+        previewBody.innerHTML = "<video controls autoplay src='" + previewUrl + "'></video>";
+      } else {
+        previewBody.innerHTML = "<img alt='preview' src='" + previewUrl + "' />";
+      }
+      previewMask.style.display = "flex";
+    } catch (e) {
+      log(String(e));
+    }
   };
   const token = () => $("token").value.trim();
   const base = () => $("base").value.trim() || location.origin;
@@ -352,11 +400,18 @@ export function renderAdminUiScript() {
           const mediaBrief = media.map((m) => {
             const t = m?.type || "media";
             const n = m?.fileName ? (" " + m.fileName) : "";
+            const ct = String(m?.contentType || "").toLowerCase();
+            const previewMode = ct.startsWith("image/") || t === "image"
+              ? "image"
+              : (ct.startsWith("video/") || t === "video" ? "video" : "");
+            const pv = m?.downloadPath && previewMode
+              ? (" <button type='button' class='alt' data-pv='" + attrEsc(m.downloadPath) + "' data-pv-mode='" + previewMode + "' data-name='" + attrEsc(m.downloadName || m.fileName || (t + ".bin")) + "'>预览</button>")
+              : "";
             const dl = m?.downloadPath
               ? (" <button type='button' class='alt' data-dl='" + attrEsc(m.downloadPath) + "' data-name='" + attrEsc(m.downloadName || m.fileName || (t + ".bin")) + "'>下载</button>")
               : "";
             const reason = m?.archiveReason ? (" (" + esc(m.archiveReason) + ")") : "";
-            return t + n + dl + reason;
+            return t + n + pv + dl + reason;
           }).join(", ");
           const content = x.text ? esc(x.text) : (mediaBrief || "");
           return "<tr>"
@@ -394,6 +449,15 @@ export function renderAdminUiScript() {
           } catch (e) {
             log(String(e));
           }
+        });
+      });
+      document.querySelectorAll("button[data-pv]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const path = btn.getAttribute("data-pv") || "";
+          const mode = btn.getAttribute("data-pv-mode") || "image";
+          const name = btn.getAttribute("data-name") || "preview";
+          if (!path) return;
+          await openPreview(path, mode, name);
         });
       });
       return d;
@@ -601,6 +665,10 @@ export function renderAdminUiScript() {
   $("btnInboxRefresh").addEventListener("click", refreshInbox);
   $("btnInboxAuto").addEventListener("click", toggleInboxAuto);
   $("btnInboxClear").addEventListener("click", clearInbox);
+  $("btnPreviewClose").addEventListener("click", closePreview);
+  $("previewMask").addEventListener("click", (e) => {
+    if (e.target === previewMask) closePreview();
+  });
   $("sendAccSelect").addEventListener("change", async () => {
     const accountId = selectedAccountId();
     if (accountId && st.currentUserByAccount[accountId]) {
